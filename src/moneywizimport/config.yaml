@@ -1,0 +1,60 @@
+statements:
+  prepared_dir: "./statements/prepared"
+  ofx_dir: "./ofx"
+
+  raw:
+    - input_dir: "./statements/raw"
+      pattern: "^Extras din contul de card.*\\.zip$"
+      label: "VB"
+      rename_template: "VB_{year}-{month}_{iban}.zip"
+      zip_password: ${VB_ZIP_PASSWORD}
+
+    - input_dir: "./statements/raw"
+      pattern: "^Statement_for_.*\\.pdf$"
+      label: "MAIB"
+      rename_template: "MAIB_{year}-{month}_{iban}.zip"
+      zip_password: ${MAIB_ZIP_PASSWORD}
+
+    - input_dir: "./statements/raw"
+      pattern: "^ClientReport.*\\.zip$"
+      label: "MAIB"
+      rename_template: "MAIB_{year}-{month}_{iban}.zip"
+      zip_password: ${MAIB_ZIP_PASSWORD}
+
+providers:
+  - name: "Victoria Bank"
+    label: "VB"
+    filter: "^VB_(?P<year>\\d{4})-(?P<month>\\d{2})_(?P<iban>.+)\\.zip$"
+    zip_password: ${VB_ZIP_PASSWORD}
+    accounts:
+      - name: "Secret *1111"
+        iban: "MD1111111111111111111111"
+      - name: "Salariu *2222"
+        iban: "MD2222222222222222222222"
+      - name: "Salut *3333"
+        iban: "MD3333333333333333333333"
+
+  - name: "MAIB"
+    filter: "^MAIB_(?P<year>\\d{4})-(?P<month>\\d{2})_(?P<iban>.+)\\.zip$"
+    zip_password: ${MAIB_ZIP_PASSWORD}
+    accounts:
+      - name: "MAIB Daily Digital *4444"
+        iban: "MD4444444444444444444444"
+
+
+offline_accounts:
+  - name: Revolut
+    match:
+      - REVOLUT
+  - name: Wallet
+    match:
+      - ATM VICTORIABANK
+  - name: OTP Bank Neos
+    match:
+      - MOBIAS NEOS
+
+payees_mapping:
+  - match: help\.max\.com
+    name: HBO Max
+  - match: ITUNES|APPLE.COM
+    name: Apple Services

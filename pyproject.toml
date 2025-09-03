@@ -1,19 +1,41 @@
-[project]
+[tool.poetry]
 name = "moneywizimport"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Ghenadie Munteanu",email = "g4share@gmail.com"}
-]
+description = "CLI tools to generate OFX files for MoneyWiz imports"
+authors = ["Ghenadie Munteanu <g4share@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-]
+packages = [{ include = "moneywizimport", from = "src" }]
+include = ["src/moneywizimport/templates/**/*"]
 
-[tool.poetry]
-packages = [{include = "moneywizimport", from = "src"}]
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+pyyaml = "^6.0"
+pyzipper = "^0.3.6"
+lxml = "^6.0.2"
+jinja2 = "^3.1.6"
+pdfminer-six = "20251107"
+pdfplumber = "0.11.8"
+poetry-core = ">=2.0.0"
 
+[tool.poetry.scripts]
+prepare-statement = "moneywizimport.cli_prepare_statement:main"
+generate-ofx = "moneywizimport.generate_ofx:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.1,<10.0.0)",
+    "ruff (==0.14.8)",
+    "pytest-cov (>=7.0.0,<8.0.0)"
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+extend-select = ["I"] # import sorting

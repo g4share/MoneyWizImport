@@ -1,0 +1,13 @@
+rules:
+  - "Review the entire current branch (committed and working tree) within this project—do not limit analysis to the latest diff."
+  - "Apply fixes directly but never run git commit or git push; leave changes for manual review."
+  - "No dead code; keep functions small, focused, and pure when practical."
+  - "Use type hints everywhere and respect the 120-character line limit."
+  - "Follow repository norms: prefer stdlib logging over print and avoid raising log levels unless necessary."
+  - "After edits, run `poetry run pytest` and `poetry run python -m compileall src`."
+  - "Ensure every package directory has an __init__.py and keep imports organized/clean."
+  - "Name variables appropriately for their context; avoid misleading or incorrect identifiers."
+  - "Lint before delivering: run `poetry run ruff check .` and fix findings."
+  - "Group unit tests by functionality/flow (one module per domain area) rather than one monolithic test file."
+  - "Prefer parametrized pytest tests where it reduces duplication and improves clarity."
+  - "Observe good practices: keep code simple/DRY, apply YAGNI, respect SOLID/SoC/POLA, favor functional/stateless patterns where sensible, avoid code smells."

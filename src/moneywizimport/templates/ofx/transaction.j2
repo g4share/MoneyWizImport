@@ -1,0 +1,8 @@
+                    <STMTTRN>
+                        <TRNTYPE>{{ transaction.type.ofx_value }}</TRNTYPE>
+                        <DTPOSTED>{{ transaction.date_time.strftime("%Y%m%d%H%M%S") }}</DTPOSTED>
+                        <TRNAMT>{{ transaction.amount }}</TRNAMT>
+                        <FITID>{{ transaction.id() }}</FITID>
+                        <NAME>{{ transaction.payee }}</NAME>
+                        <MEMO>{{ transaction.description() }}</MEMO>
+                    </STMTTRN>

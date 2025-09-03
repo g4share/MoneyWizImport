@@ -1,0 +1,5 @@
+rules_file: codex/codex_rules.yml
+paths:
+  - .
+mode: full
+auto_fix: true

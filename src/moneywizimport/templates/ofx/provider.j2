@@ -1,0 +1,18 @@
+        <STMTTRNRS>
+            <TRNUID>{{ index }}</TRNUID>
+            <STATUS>
+                <CODE>0</CODE>
+                <SEVERITY>INFO</SEVERITY>
+            </STATUS>
+            <STMTRS>
+                <CURDEF>{{ report.info.currency }}</CURDEF>
+                <BANKACCTFROM>
+                    <BANKID>{{ report.info.provider }}</BANKID>
+                    <ACCTID>{{ report.info.account }}</ACCTID>
+                    <ACCTTYPE>CHECKING</ACCTTYPE>
+                </BANKACCTFROM>
+                <BANKTRANLIST>
+        {{ transactions | safe }}
+                </BANKTRANLIST>
+            </STMTRS>
+        </STMTTRNRS>
