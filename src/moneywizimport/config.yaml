@@ -1,0 +1,96 @@
+ofx_dir: "./ofx"
+
+statements:
+  prepared_dir: "./statements/prepared"
+  ofx_dir: "./ofx"
+  raw:
+    - input_dir: "./statements/raw"
+      pattern: "^Extras din contul de card.*\\.zip$"
+      rename_template: "VB_{year}-{month}-{day}_{iban}.zip"
+      zip_password: ${VB_ZIP_PASSWORD}
+
+banks:
+  - name: "Victoria Bank"
+    filter: "^VB_(?P<year>\\d{4})-(?P<month>\\d{2})-\\d{2}_(?P<iban>.+)\\.zip$"
+    zip_password: ${VB_ZIP_PASSWORD}
+    accounts:
+      - name: "Salary *8585"
+        iban: "MD66VI022521100011261MDL"
+      - name: "Savings *9823"
+        iban: "MD65VI225912310310907131"
+      - name: "Expenses *0101"
+        iban: "MD11VI225911508140903004"
+
+payees_mapping:
+  - match: BONUS
+    name: Bonus
+  - match: Dobanda calculata
+    name: Interest
+  - match: Impozit din dobinda
+    name: Interest Tax
+  - match: LINELLA
+    name: Linella
+  - match: FOURCHETTE
+    name: Fourchette
+  - match: KAUFLAND
+    name: Kaufland
+  - match: FAMILY MARKET
+    name: Family Market
+  - match: GRANIER
+    name: Granier
+  - match: ANDY'S
+    name: Andys Pizza
+  - match: LA PLĂCINTE
+    name: La Placinte
+  - match: STAR KEBAB
+    name: Star Kebab
+  - match: MC DONALD
+    name: McDonald's
+  - match: PETROM|ROMPETROL|LUKOIL
+    name: Gas Station
+  - match: PHARMACIA|FARMACIE|HYPPOCRATES
+    name: Pharmacy
+  - match: ORANGE
+    name: Orange
+  - match: MOLDTELECOM
+    name: Moldtelecom
+  - match: MOLDCELL
+    name: Moldcell
+  - match: MAIB
+    name: Transfer MAIB
+  - match: REVOLUT
+    name: Revolut
+  - match: PAYPAL
+    name: PayPal
+  - match: PATREON
+    name: Patreon
+  - match: ITUNES|APPLE.COM
+    name: Apple Services
+  - match: AMAZON
+    name: Amazon
+  - match: EBAY
+    name: eBay
+  - match: ALIEXPRESS
+    name: AliExpress
+  - match: HBOMAX|HBO
+    name: HBO
+  - match: NETFLIX
+    name: Netflix
+  - match: GLOVO
+    name: Glovo
+  - match: ZAKAZ EXPRESS
+    name: Zakaz Express
+  - match: EASY CREDIT
+    name: Easy Credit
+  - match: BANCOMAT|ATM|CS
+    name: Cash Withdrawal
+  - match: WESTERN UNION
+    name: Western Union
+  - match: TRANSFERWISE|WISE
+    name: Wise
+  - match: GOOGLE
+    name: Google Services
+  - match: MICROSOFT
+    name: Microsoft
+  - match: META|FACEBOOK
+    name: Facebook Ads
