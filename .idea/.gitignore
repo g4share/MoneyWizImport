@@ -1,0 +1,40 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.venv*/
+
+# Poetry
+poetry.toml
+# Păstrezi pyproject.toml și poetry.lock în git!
+
+# Logs
+*.log
+
+# Unit test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+.mypy_cache/
+
+# IDE / Editor
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Local config / secrets
+.env
+.env.*
