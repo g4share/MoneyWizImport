@@ -1,0 +1,2 @@
+statement_dir: "./statements"
+zip_password: ${VB_ZIP_PASSWORD}

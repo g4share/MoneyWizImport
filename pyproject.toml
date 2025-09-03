@@ -1,18 +1,19 @@
-[project]
+[tool.poetry]
 name = "moneywizimport"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Ghenadie Munteanu",email = "g4share@gmail.com"}
-]
+description = "Tool to convert bank statements into CSV files for import into MoneyWiz"
+authors = ["Ghenadie Munteanu <g4share@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-]
+packages = [{ include = "moneywizimport", from = "src" }]
 
-[tool.poetry]
-packages = [{include = "moneywizimport", from = "src"}]
+[tool.poetry.dependencies]
+python = ">=3.13"
+pyyaml = "^6.0"
+pyzipper = "^0.3.6"
+lxml = "^5.2.2"
 
+[tool.poetry.scripts]
+prepare-statement = "moneywizimport.cli_prepare_statement:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
