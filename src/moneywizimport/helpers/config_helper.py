@@ -20,3 +20,8 @@ class ConfigHelper:
             env_val = os.getenv(env_key, "")
             return env_val
         return value
+
+    @staticmethod
+    def load_olx_bank_sets(path: Path) -> list[dict]:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return raw.get("bank_sets", [])

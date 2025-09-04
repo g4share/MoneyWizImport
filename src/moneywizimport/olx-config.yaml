@@ -1,0 +1,10 @@
+bank_sets:
+  - name: "Victoria Bank"
+    filter: "VB_*.zip"
+    accounts:
+      - name: "Salut *8585"
+        iban: "MD66VI022521100011261MDL"
+      - name: "Salariu *9823"
+        iban: "MD65VI225912310310907131"
+      - name: "Social *0101"
+        iban: "MD11VI225911508140903004"
