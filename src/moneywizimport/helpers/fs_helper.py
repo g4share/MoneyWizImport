@@ -35,3 +35,11 @@ def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> list[
 
     result.sort(key=lambda x: (x["month"], x["file"]))
     return result
+
+def delete_files(files: list[Path]) -> None:
+    for f in files:
+        try:
+            if f.exists():
+                f.unlink()
+        except OSError:
+            pass  # suppress errors silently for now

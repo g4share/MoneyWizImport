@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from moneywizimport.helpers.config_helper import ConfigHelper
 from moneywizimport.helpers.fs_helper import collect_statement_files
+from moneywizimport.core.statement import generate_reports
 
 def main():
     parser = argparse.ArgumentParser()
@@ -9,22 +10,29 @@ def main():
     parser.add_argument("--olx", default="src/moneywizimport/olx-config.yaml")
     args = parser.parse_args()
 
-    config = ConfigHelper(Path(args.config)).load_config()
+    ch = ConfigHelper(Path(args.config))
+    config = ch.load_config()
     statement_dir = Path(config["statement_dir"])
     olx_config_path = Path(args.olx)
 
     bank_sets = ConfigHelper.load_olx_bank_sets(olx_config_path)
-    results = collect_statement_files(statement_dir, bank_sets)
+    groups = collect_statement_files(statement_dir, bank_sets)
+    olx_path = Path(config["olx_dir"])
 
+    '''
     current_month = None
-    for item in results:
-        if item["month"] != current_month:
+    for group in groups:
+        if group["month"] != current_month:
             if current_month is not None:
                 print()
-            current_month = item["month"]
+            current_month = group["month"]
             print(current_month)
 
-        print(f"  {item['file']} : {item['account']}")
+        print(f"  {group['file']} : {group['account']}")
+    '''
+    password = ch.get_zip_password()
+    generate_reports(olx_path, groups, password)
+
 
 if __name__ == "__main__":
     main()

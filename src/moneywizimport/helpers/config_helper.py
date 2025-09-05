@@ -25,3 +25,9 @@ class ConfigHelper:
     def load_olx_bank_sets(path: Path) -> list[dict]:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         return raw.get("bank_sets", [])
+
+    def get_zip_password(self) -> bytes | None:
+        raw = self.load_config().get("zip_password")
+        if isinstance(raw, str) and raw != "":
+            return raw.encode("utf-8")
+        return None
