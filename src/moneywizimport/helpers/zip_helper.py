@@ -1,4 +1,5 @@
 from pathlib import Path
+import tempfile
 import pyzipper
 
 def zip(files: list[Path], archive_name: Path, password: bytes | None = None):
@@ -22,3 +23,19 @@ def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path 
                 zf.extract(info, tmp_dir)
                 return tmp_dir / info.filename
     return None
+
+def unzip_group(zip_items: list[dict], password: bytes | None = None) -> list[Path]:
+    from tempfile import mkdtemp
+    tmp_root = Path(mkdtemp())
+    results = []
+
+    for idx, item in enumerate(zip_items):
+        zip_path = Path(item["path"])
+        target_dir = tmp_root / str(idx)
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        extracted = unzip(zip_path, target_dir, password=password)
+        if extracted:
+            results.append(extracted)
+
+    return results

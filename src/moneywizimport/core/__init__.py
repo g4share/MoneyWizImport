@@ -1,1 +1,1 @@
-from .statement import prepareArchives
+from .statement import prepare_archives

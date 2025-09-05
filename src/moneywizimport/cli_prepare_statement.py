@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
-from moneywizimport.helpers import ConfigHelper
-from moneywizimport.core import prepareArchives
+from moneywizimport.helpers import ConfigHelper, config_helper
+from moneywizimport.core import prepare_archives
 
 def main():
     parser = argparse.ArgumentParser()
@@ -12,10 +12,9 @@ def main():
     config = cfg.load_config()
 
     statement_dir = Path(config["statement_dir"]).expanduser()
-    raw_pw = config.get("zip_password")
-    password = raw_pw.encode("utf-8") if isinstance(raw_pw, str) and raw_pw != "" else None
+    password = cfg.get_zip_password()
 
-    prepareArchives(statement_dir=statement_dir, password=password)
+    prepare_archives(statement_dir=statement_dir, password=password)
 
 if __name__ == "__main__":
     main()
