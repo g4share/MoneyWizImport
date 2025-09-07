@@ -1,13 +1,15 @@
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
-from collections import defaultdict
+import re
+from typing import List, Tuple
+from datetime import datetime
 
 import tempfile, shutil
 from moneywizimport.helpers import unzip, zip, unzip_group
 from moneywizimport.helpers.fs_helper import delete_files
 from moneywizimport.helpers.html_helper import extract_transactions, extract_balances
-from moneywizimport.core.olx_generator import write_olx_file
+from moneywizimport.core.ofx_generator import write_ofx_file
 
 from moneywizimport.helpers.html_helper import read_statement_date
 
@@ -28,26 +30,62 @@ def prepare_archives(statement_dir: Path, password: bytes | None = None):
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-def generate_reports(olx_path: Path, groups: List[Dict[str, list]], password: bytes | None = None) -> None:
+def resolve_category(payee: str, categories_mapping: dict[str, str]) -> str:
+    """
+    Returns the full category path for a given payee from a provided mapping.
+    If not found, returns ': UNKNOWN'.
+    """
+    return categories_mapping.get(payee.lower(), ": UNKNOWN")
+
+def resolve_payee(description: str, rules: List[Tuple[str, str]]) -> str:
+    """
+    Matches a transaction description against regex rules to identify payee name.
+    Matching is case-insensitive using re.IGNORECASE.
+    """
+    desc = description.strip()
+
+    for pattern, label in rules:
+        if re.search(pattern, desc, flags=re.IGNORECASE):
+            return label
+
+    return ": UNKNOWN"
+
+def generate_reports(ofx_path: Path,
+                     groups: List[Dict[str, list]],
+                     password: bytes | None = None,
+                     payees_mapping: list[tuple[str, str]] | None = None,
+                     categories_mapping: dict[str, str] | None = None
+) -> None:
+
     for group in groups:
         month = group["month"]
         files = group["files"]
 
-        if month == "2024-02":
-            generate_report(olx_path, files, month, password)
+        if datetime.strptime(month, "%Y-%m") >= datetime(2025, 2, 1):
+            generate_report(ofx_path, files, month, password, payees_mapping, categories_mapping)
 
-def generate_report(olx_path: Path, files: List[Dict[str, str]], month: str, password: bytes | None = None) -> None:
+def generate_report(ofx_path: Path,
+                    files: List[Dict[str, str]],
+                    month: str,
+                    password: bytes | None = None,
+                    payees_mapping: list[tuple[str, str]] | None = None,
+                    categories_mapping: dict[str, str] | None = None) -> None:
     html_files = unzip_group(files, password)
-    olx_data = []
+    ofx_data = []
 
     try:
         for idx, f in enumerate(html_files):
 
             transactions = extract_transactions(f)
+            for txn in transactions:
+                payee = resolve_payee(txn["details"], payees_mapping)
+                txn["payee"] = payee
+                txn["category"] = resolve_category(payee, categories_mapping)
+
             start_balance, end_balance = extract_balances(f)
 
             info = {"name": files[idx]["account"]}
-            olx_data.append({
+            ofx_data.append({
                 "info": info,
                 "transactions": transactions,
                 "start_balance": start_balance,
@@ -55,12 +93,12 @@ def generate_report(olx_path: Path, files: List[Dict[str, str]], month: str, pas
             })
 
         # debug print
-        for entry in olx_data:
+        for entry in ofx_data:
             print(f">>> {entry['info']['name']} (start: {entry['start_balance']} end: {entry['end_balance']})")
             #for t in entry["transactions"]:
             #    print(f"   {t}")
 
-        write_olx_file(olx_data, olx_path / month)
+        write_ofx_file(ofx_data, ofx_path / month)
 
     finally:
         delete_files(html_files)

@@ -29,7 +29,6 @@ def extract_balances(html_file: Path) -> tuple[str, str]:
 
 def extract_transactions(html_file: Path) -> list[dict[str, str]]:
     doc = html.fromstring(html_file.read_text(encoding="utf-8"))
-
     rows = doc.xpath("//table//tr[td and count(td)=7]")[1:]
     transactions = []
 
@@ -38,10 +37,10 @@ def extract_transactions(html_file: Path) -> list[dict[str, str]]:
         if len(cols) != 7:
             continue
 
-        raw_datetime = cols[1].text_content().strip()  # ex: '07-06-2025 11:11:58'
+        raw_datetime = cols[1].text_content().strip()
         details = cols[2].text_content().strip()
-        amount_raw = cols[3].text_content().strip()    # ex: "-1000.00 MDL"
-        amount_mdl = cols[4].text_content().strip()    # ex: "-1000.00"
+        amount_raw = cols[3].text_content().strip()
+        amount_mdl = cols[4].text_content().strip()
         fee = cols[5].text_content().strip()
 
         if not raw_datetime or not amount_raw:
@@ -53,22 +52,37 @@ def extract_transactions(html_file: Path) -> list[dict[str, str]]:
         time = parts[1] if len(parts) > 1 else ""
 
         # format date to ISO
-        day, month, year = date.split("-")
-        date_iso = f"{year}-{month}-{day}"
+        try:
+            day, month, year = date.split("-")
+            date_iso = f"{year}-{month}-{day}"
+        except ValueError:
+            continue
 
-        # split amount and currency
+        # handle foreign amount & currency
         amount_parts = amount_raw.split()
-        amount = amount_parts[0]
+        foreign_amount = amount_parts[0].replace(",", ".")
         currency = amount_parts[1] if len(amount_parts) > 1 else "MDL"
+        mdl_amount = amount_mdl.replace(",", ".")
+
+        # calculate exchange rate
+        if currency != "MDL":
+            try:
+                exchange_rate = round(abs(float(mdl_amount)) / abs(float(foreign_amount)), 6)
+            except ZeroDivisionError:
+                exchange_rate = None
+        else:
+            foreign_amount = ""
+            exchange_rate = None
 
         transactions.append({
             "date": date_iso,
             "time": time,
             "details": details,
-            "amount": amount,
+            "amount": mdl_amount,
             "currency": currency,
-            "amount_mdl": amount_mdl,
-            "fee": fee,
+            "foreign_amount": foreign_amount,
+            "exchange_rate": exchange_rate,
+            "fee": fee
         })
 
     return transactions
