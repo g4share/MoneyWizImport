@@ -1,5 +1,5 @@
 statement_dir: "./statements"
-olx_dir: "./olx"
+ofx_dir: "./ofx"
 zip_password: ${VB_ZIP_PASSWORD}
 
 bank_sets:
@@ -8,7 +8,152 @@ bank_sets:
     accounts:
       - name: "Salut *8585"
         iban: "MD66VI022521100011261MDL"
-      - name: "Salariu *9823"
+      - name: "Card 1 *9823"
         iban: "MD65VI225912310310907131"
-      - name: "Social *0101"
+      - name: "Card 2 *0101"
         iban: "MD11VI225911508140903004"
+
+payees_mapping:
+  - match: BONUS SALUT
+    name: Bonus
+  - match: BONUS UNO
+    name: Bonus
+  - match: '"BONUS" E'
+    name: Bonus
+  - match: Dobanda calculata
+    name: Dobanda
+  - match: DSVELES-PRIM
+    name: DSVELES Prim
+  - match: Impozit din dobinda calculata
+    name: Impozit din dobinda
+  - match: '"FAMILY MARKET" Buzdug'
+    name: Family Market
+  - match: K.V.N FAMILY GROUP
+    name: Family Group
+  - match: Fourchette M ICS SRL
+    name: Fourchette
+  - match: ROMPETROL PECO 76
+    name: RomPetrol
+  - match: LUKOIL PECO-13
+    name: Lukoil
+  - match: PECO-71
+    name: Petrom
+  - match: PECO 100
+    name: Petrom
+  - match: LINELLA 36
+    name: Linella
+  - match: LINELLA 39
+    name: Linella
+  - match: MOLDRETAIL GROUP L126
+    name: Linella
+  - match: GRANIER
+    name: Granier
+  - match: TELEMARKET CREANGA
+    name: Telemarket
+  - match: Golden Rose
+    name: Golden Rose
+  - match: '"ZOO" Magazin Tiraspol'
+    name: ZOO Magazin
+  - match: PRODIAFARM SRL
+    name: Prodia Farm
+  - match: ZOLUSKA_VARNA
+    name: Zoluska
+  - match: ZOLUSKA_GAGARIN
+    name: Zoluska
+  - match: '"VentoRetail"SRL'
+    name: Vento
+  - match: McDonald Malldova
+    name: McDonald
+  - match: McD MALLDOVA
+    name: McDonald
+  - match: FARM ORIENT
+    name: Orient Farm
+  - match: MAXIMUM ELECTRONIC SRL
+    name: Maximum
+  - match: AGROIANA LUX
+    name: Agroiana Lux
+  - match: VALEA TRANDAFIRILOR
+    name: Valea Trandafirilor
+  - match: ANDYS PIZZA 13
+    name: Andys Pizza
+  - match: LA MAMUCA
+    name: La Mamuca
+  - match: SISCHIN AND MARCENCO
+    name: Sischin & Marcenco
+  - match: NR 1 TOLSTOI
+    name: Nr 1
+
+
+categories:
+  Food & Dining:
+    Groceries:
+      payees:
+        - Kaufland
+        - Linella
+        - Nr1
+        - Zakaz Express
+        - Beef House
+    Restaurants:
+      payees:
+        - Beef House
+        - McDonalds
+        - Andy’s Pizza
+    Other: {}
+
+  Transportation:
+    Gas/Fuel: {}
+    Parking: {}
+    Public Transportation: {}
+    Car Insurance: {}
+    Maintenance: {}
+    Lease/Loan: {}
+    Car Rental: {}
+    Other: {}
+
+  Household:
+    Mortgage/Rent: {}
+    Home Insurance: {}
+    Maintenance: {}
+    Furniture: {}
+    Utilities: {}
+    Supplies: {}
+    Other: {}
+
+  Bills:
+    Fees: {}
+    Subscriptions: {}
+    Other: {}
+
+  Shopping:
+    Clothes: {}
+    Technology: {}
+    Gifts: {}
+    Accessories: {}
+    Tools: {}
+    Other: {}
+
+  Health Care:
+    Pharmacy: {}
+    Medical: {}
+    Health Insurance: {}
+    Dental: {}
+    Eye Care: {}
+    Other: {}
+
+  Community:
+    Taxes: {}
+    Loans: {}
+    Fees: {}
+    Charity: {}
+    Services: {}
+    Other: {}
+
+  Vacations:
+    Accommodation: {}
+    Transportation: {}
+    Attractions: {}
+
+  Credits:
+    Mortgage: {}
+    Car: {}
+    Appliances: {}
