@@ -13,10 +13,10 @@ def main():
     config = cfg.load_config()
     statement_dir = Path(config["statement_dir"])
 
-    bank_sets = cfg.load_olx_bank_sets()
+    bank_sets = cfg.load_ofx_bank_sets()
 
     groups = collect_statement_files(statement_dir, bank_sets)
-    olx_path = Path(config["olx_dir"])
+    ofx_path = Path(config["ofx_dir"])
 
     '''
     for group in groups:
@@ -25,7 +25,10 @@ def main():
             print(f"  {f['file']} : {f['account']}")
     '''
     password = cfg.get_zip_password()
-    generate_reports(olx_path, groups, password)
+    categories_mapping = cfg.load_category_mapping()
+
+    payees_mapping = cfg.load_payees_mapping()
+    generate_reports(ofx_path, groups, password, payees_mapping, categories_mapping)
 
 
 if __name__ == "__main__":

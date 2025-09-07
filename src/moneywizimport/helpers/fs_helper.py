@@ -5,9 +5,8 @@ from typing import List, Dict, Any
 
 RE_VB = re.compile(r"^VB_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$", re.IGNORECASE)
 
-def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> List[Dict[str, Any]]:
+def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> List[Dict[str, list]]:
     grouped = defaultdict(list)
-
     for bank in bank_sets:
         bank_name = bank["name"]
         pattern = bank["filter"]
