@@ -8,7 +8,25 @@ RE_VB = re.compile(r"^VB_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
 
-def collect_statement_files(statement_dir: Path, bank_sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+
+def collect_statement_files(
+    statement_dir: Path, bank_sets: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Group statement archives by month.
+
+    Parameters
+    ----------
+    statement_dir:
+        Directory containing the archived statements.
+    bank_sets:
+        Configuration describing how to match and label account files.
+
+    Returns
+    -------
+    list[dict[str, Any]]
+        List of dictionaries of the form ``{"month": str, "files": list}``.
+    """
+
     grouped = defaultdict(list)
     for bank in bank_sets:
         bank_name = bank["name"]
@@ -48,6 +66,8 @@ def collect_statement_files(statement_dir: Path, bank_sets: list[dict[str, Any]]
 
 
 def delete_files(files: list[Path]) -> None:
+    """Remove all files from ``files`` ignoring individual errors."""
+
     for file_path in files:
         try:
             if file_path.exists():
