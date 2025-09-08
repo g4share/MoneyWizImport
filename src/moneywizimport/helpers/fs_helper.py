@@ -1,12 +1,30 @@
+"""Filesystem helper utilities.
+
+This module contains helpers for locating and removing statement files.
+"""
+
 from pathlib import Path
+import logging
 import re
 from collections import defaultdict
-from typing import List, Dict, Any
+from typing import Iterable
 
 RE_VB = re.compile(r"^VB_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$", re.IGNORECASE)
+logger = logging.getLogger(__name__)
 
-def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> List[Dict[str, list]]:
-    grouped = defaultdict(list)
+def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> list[dict[str, list]]:
+    """Return statement metadata grouped by month.
+
+    Parameters
+    ----------
+    statement_dir:
+        Directory containing statement archives.
+    bank_sets:
+        List of bank configuration dictionaries as loaded from the config
+        file.
+    """
+
+    grouped: dict[str, list] = defaultdict(list)
     for bank in bank_sets:
         bank_name = bank["name"]
         pattern = bank["filter"]
@@ -22,15 +40,15 @@ def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> List[
 
             account_name = "UNKNOWN"
             for iban, acc_name in iban_map.items():
-                if iban_token.lower() == iban.lower():
+                if iban_token.casefold() == iban.casefold():
                     account_name = acc_name
                     break
 
             grouped[month_key].append({
                 "file": file.name,
-                "path": str(file.resolve()),  # <== read path
+                "path": str(file.resolve()),
                 "bank": bank_name,
-                "account": account_name
+                "account": account_name,
             })
 
     result = []
@@ -43,10 +61,15 @@ def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> List[
 
     return result
 
-def delete_files(files: list[Path]) -> None:
-    for f in files:
+
+def delete_files(files: Iterable[Path]) -> None:
+    """Delete files if they exist.
+
+    Any :class:`OSError` raised while deleting is logged and suppressed.
+    """
+
+    for file in files:
         try:
-            if f.exists():
-                f.unlink()
-        except OSError:
-            pass  # suppress errors silently for now
+            file.unlink(missing_ok=True)
+        except OSError as exc:  # pragma: no cover - best-effort cleanup
+            logger.warning("Failed to delete %s: %s", file, exc)

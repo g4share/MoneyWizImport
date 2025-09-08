@@ -1,30 +1,31 @@
-import os
-import re
-import logging
-from pathlib import Path
-from typing import Dict, List, Tuple
-import yaml
+"""Helpers for loading and parsing the YAML configuration file."""
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+import os
+from pathlib import Path
+import yaml
 
 
 class ConfigHelper:
 
     def __init__(self, config_path: Path):
         self.config_path = config_path
+        self._data: dict | None = None
 
     def load_config(self) -> dict:
         """
         Loads and resolves top-level config keys, applying environment variable substitution.
         """
-        raw = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
-        return {k: self._resolve_value(k, v) for k, v in raw.items()}
+        raw = self._load_raw()
+        return {k: self._resolve_value(v) for k, v in raw.items()}
 
-    def _resolve_value(self, key: str, value):
-        if isinstance(value, str) and "${" in value:
-            env_key = re.findall(r"\$\{([^}]+)\}", value)[0]
-            env_val = os.getenv(env_key, "")
-            return env_val
+    def _load_raw(self) -> dict:
+        if self._data is None:
+            self._data = yaml.safe_load(self.config_path.read_text(encoding="utf-8")) or {}
+        return self._data
+
+    def _resolve_value(self, value):
+        if isinstance(value, str):
+            return os.path.expandvars(value)
         return value
 
     def get_zip_password(self) -> bytes | None:
@@ -40,10 +41,9 @@ class ConfigHelper:
         """
         Loads 'bank_sets' from the config file (for filtering zip statements).
         """
-        raw = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
-        return raw.get("bank_sets", [])
+        return self._load_raw().get("bank_sets", [])
 
-    def load_category_mapping(self) -> Dict[str, str]:
+    def load_category_mapping(self) -> dict[str, str]:
         """
         Loads payee-to-category mapping from the 'categories' section of a YAML file.
         Supports nested subcategories of arbitrary depth.
@@ -62,17 +62,21 @@ class ConfigHelper:
                     else:
                         recurse(value, new_path)
 
-        raw = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
-        result = {}
+        raw = self._load_raw()
+        result: dict[str, str] = {}
         categories = raw.get("categories", {})
         recurse(categories, "")
         return result
 
-    def load_payees_mapping(self) -> List[Tuple[str, str]]:
+    def load_payees_mapping(self) -> list[tuple[str, str]]:
         """
         Loads the payee regex rules from the config YAML.
         Returns a list of (regex, payee name) tuples.
         """
-        raw = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
+        raw = self._load_raw()
         payees = raw.get("payees_mapping", [])
-        return [(item["match"], item["name"]) for item in payees if "match" in item and "name" in item]
+        return [
+            (item["match"], item["name"])
+            for item in payees
+            if "match" in item and "name" in item
+        ]

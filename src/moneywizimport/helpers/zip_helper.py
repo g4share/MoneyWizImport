@@ -1,15 +1,31 @@
 from pathlib import Path
-import tempfile
+import logging
 import pyzipper
 
-def zip(files: list[Path], archive_name: Path, password: bytes | None = None):
+
+logger = logging.getLogger(__name__)
+
+
+def zip_files(files: list[Path], archive_name: Path, password: bytes | None = None) -> None:
+    """Archive *files* into *archive_name*.
+
+    Parameters
+    ----------
+    files:
+        Sequence of paths to add to the archive.
+    archive_name:
+        Destination archive path.
+    password:
+        Optional password used to encrypt the archive.
+    """
+
     with pyzipper.AESZipFile(archive_name, "w", compression=pyzipper.ZIP_DEFLATED) as zf:
         if password:
             zf.setpassword(password)
             zf.setencryption(pyzipper.WZ_AES, nbits=256)
-        for f in files:
-            zf.write(f, arcname=f.name)
-    print(f"Archived → {archive_name}")
+        for file in files:
+            zf.write(file, arcname=file.name)
+    logger.info("Archived %s", archive_name)
 
 def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path | None:
     with pyzipper.AESZipFile(zip_path) as zf:
