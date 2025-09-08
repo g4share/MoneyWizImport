@@ -1,7 +1,23 @@
+"""Utilities for writing OFX files."""
+
 from pathlib import Path
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def write_ofx_file(ofx_data: list[dict], ofx_path: Path) -> None:
+    """Write a list of transaction data to an OFX file.
+
+    Parameters
+    ----------
+    ofx_data:
+        List of dictionaries containing account information and transactions.
+    ofx_path:
+        Destination path without an ``.ofx`` suffix. The suffix will be
+        appended automatically.
+    """
     output_path = ofx_path.with_suffix(".ofx")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -69,7 +85,7 @@ NEWFILEUID:NONE
 
     content = header + signon + body + footer
     output_path.write_text(content, encoding="utf-8")
-    print(f"    Wrote → {output_path}")
+    logger.info("Wrote → %s", output_path)
 
 def write_transaction(txn: dict, index: int) -> str:
     """
