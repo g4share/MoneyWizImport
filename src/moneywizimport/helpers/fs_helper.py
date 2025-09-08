@@ -1,11 +1,14 @@
 from pathlib import Path
+import logging
 import re
 from collections import defaultdict
-from typing import List, Dict, Any
+from typing import Any
 
 RE_VB = re.compile(r"^VB_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$", re.IGNORECASE)
 
-def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> List[Dict[str, list]]:
+logger = logging.getLogger(__name__)
+
+def collect_statement_files(statement_dir: Path, bank_sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped = defaultdict(list)
     for bank in bank_sets:
         bank_name = bank["name"]
@@ -43,10 +46,11 @@ def collect_statement_files(statement_dir: Path, bank_sets: list[dict]) -> List[
 
     return result
 
+
 def delete_files(files: list[Path]) -> None:
-    for f in files:
+    for file_path in files:
         try:
-            if f.exists():
-                f.unlink()
-        except OSError:
-            pass  # suppress errors silently for now
+            if file_path.exists():
+                file_path.unlink()
+        except OSError as exc:
+            logger.warning("Failed to delete %s: %s", file_path, exc)

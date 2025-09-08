@@ -1,4 +1,7 @@
 from pathlib import Path
+from datetime import datetime
+from typing import Any
+
 from lxml import html
 
 def read_statement_date(html_file: Path) -> str:
@@ -27,10 +30,10 @@ def extract_balances(html_file: Path) -> tuple[str, str]:
 
     return start, end
 
-def extract_transactions(html_file: Path) -> list[dict[str, str]]:
+def extract_transactions(html_file: Path) -> list[dict[str, Any]]:
     doc = html.fromstring(html_file.read_text(encoding="utf-8"))
     rows = doc.xpath("//table//tr[td and count(td)=7]")[1:]
-    transactions = []
+    transactions: list[dict[str, Any]] = []
 
     for row in rows:
         cols = row.xpath("./td")
@@ -53,8 +56,7 @@ def extract_transactions(html_file: Path) -> list[dict[str, str]]:
 
         # format date to ISO
         try:
-            day, month, year = date.split("-")
-            date_iso = f"{year}-{month}-{day}"
+            date_iso = datetime.strptime(date, "%d-%m-%Y").strftime("%Y-%m-%d")
         except ValueError:
             continue
 
