@@ -1,8 +1,20 @@
 from pathlib import Path
-import tempfile
 import pyzipper
 
-def zip(files: list[Path], archive_name: Path, password: bytes | None = None):
+
+def zip(files: list[Path], archive_name: Path, password: bytes | None = None) -> None:
+    """Create a ZIP archive containing ``files``.
+
+    Parameters
+    ----------
+    files:
+        List of file paths to include in the archive.
+    archive_name:
+        Target archive file path.
+    password:
+        Optional password to encrypt the archive using AES.
+    """
+
     with pyzipper.AESZipFile(archive_name, "w", compression=pyzipper.ZIP_DEFLATED) as zf:
         if password:
             zf.setpassword(password)
@@ -11,7 +23,14 @@ def zip(files: list[Path], archive_name: Path, password: bytes | None = None):
             zf.write(f, arcname=f.name)
     print(f"Archived → {archive_name}")
 
+
 def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path | None:
+    """Extract ``fullExtras.html`` from ``zip_path`` into ``tmp_dir``.
+
+    Returns the path to the extracted file or ``None`` if it was not
+    found.
+    """
+
     with pyzipper.AESZipFile(zip_path) as zf:
         if password:
             zf.pwd = password
@@ -24,8 +43,12 @@ def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path 
                 return tmp_dir / info.filename
     return None
 
+
 def unzip_group(zip_items: list[dict], password: bytes | None = None) -> list[Path]:
+    """Unzip each archive in ``zip_items`` and collect extracted HTML paths."""
+
     from tempfile import mkdtemp
+
     tmp_root = Path(mkdtemp())
     results = []
 

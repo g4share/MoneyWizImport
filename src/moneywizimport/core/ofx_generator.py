@@ -1,7 +1,20 @@
 from pathlib import Path
 from datetime import datetime
 
+
 def write_ofx_file(ofx_data: list[dict], ofx_path: Path) -> None:
+    """Write a list of statement dictionaries to an OFX file.
+
+    Parameters
+    ----------
+    ofx_data:
+        Sequence of account statement dictionaries. Each item should
+        contain ``info`` and ``transactions`` keys.
+    ofx_path:
+        Destination path *without* extension. The ``.ofx`` suffix will be
+        appended automatically.
+    """
+
     output_path = ofx_path.with_suffix(".ofx")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -71,12 +84,24 @@ NEWFILEUID:NONE
     output_path.write_text(content, encoding="utf-8")
     print(f"    Wrote → {output_path}")
 
+
 def write_transaction(txn: dict, index: int) -> str:
+    """Return an OFX ``<STMTTRN>`` block for a single transaction.
+
+    Parameters
+    ----------
+    txn:
+        Transaction dictionary containing ``date``, ``time``, ``amount``
+        and related metadata.
+    index:
+        1-based transaction index used to build a unique FITID.
+
+    Returns
+    -------
+    str
+        Serialized OFX block representing the transaction.
     """
-    Returns an OFX <STMTTRN> block for a single transaction.
-    Assumes txn['amount'] is in MDL.
-    Adds foreign currency info to <MEMO> if present.
-    """
+
     fitid = f"{txn['date'].replace('-', '')}{index:04d}"
     dtposted = f"{txn['date'].replace('-', '')}{txn['time'].replace(':', '')}"
 

@@ -1,19 +1,34 @@
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict
 import re
-from typing import List, Tuple
-from datetime import datetime
+import shutil
+import tempfile
 
-import tempfile, shutil
+from moneywizimport.core.ofx_generator import write_ofx_file
 from moneywizimport.helpers import unzip, zip, unzip_group
 from moneywizimport.helpers.fs_helper import delete_files
-from moneywizimport.helpers.html_helper import extract_transactions, extract_balances
-from moneywizimport.core.ofx_generator import write_ofx_file
+from moneywizimport.helpers.html_helper import (
+    extract_balances,
+    extract_transactions,
+    read_statement_date,
+)
 
-from moneywizimport.helpers.html_helper import read_statement_date
 
-def prepare_archives(statement_dir: Path, password: bytes | None = None):
+def prepare_archives(statement_dir: Path, password: bytes | None = None) -> None:
+    """Normalize statement archives for further processing.
+
+    Each ``*.zip`` file in ``statement_dir`` is unzipped, the contained
+    HTML statement is re-zipped using the ``VB_YYYY-MM-DD.zip`` naming
+    scheme expected by MoneyWiz, and the original archive is removed.
+
+    Parameters
+    ----------
+    statement_dir:
+        Directory containing the original statement archives.
+    password:
+        Optional ZIP password for both reading and writing archives.
+    """
+
     tmp = Path(tempfile.mkdtemp(prefix="mwz_"))
     try:
         for z in sorted(Path(statement_dir).expanduser().glob("*.zip")):
@@ -30,18 +45,44 @@ def prepare_archives(statement_dir: Path, password: bytes | None = None):
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
-def resolve_category(payee: str, categories_mapping: dict[str, str]) -> str:
+
+def resolve_category(payee: str, categories_mapping: dict[str, str] | None) -> str:
+    """Return the category path for ``payee``.
+
+    Parameters
+    ----------
+    payee:
+        Normalised payee name.
+    categories_mapping:
+        Mapping of payee name (lowercase) to a full category path. If
+        ``None`` or the payee is not found, ``': UNKNOWN'`` is returned.
     """
-    Returns the full category path for a given payee from a provided mapping.
-    If not found, returns ': UNKNOWN'.
-    """
+
+    if not categories_mapping:
+        return ": UNKNOWN"
     return categories_mapping.get(payee.lower(), ": UNKNOWN")
 
-def resolve_payee(description: str, rules: List[Tuple[str, str]]) -> str:
+
+def resolve_payee(description: str, rules: list[tuple[str, str]] | None) -> str:
+    """Resolve a human-readable payee name from a transaction description.
+
+    Parameters
+    ----------
+    description:
+        Raw transaction description string.
+    rules:
+        Optional list of ``(regex, label)`` tuples. The first matching
+        regex (case-insensitive) yields the associated label.
+
+    Returns
+    -------
+    str
+        A normalised payee name or ``': UNKNOWN'`` if no rule matches.
     """
-    Matches a transaction description against regex rules to identify payee name.
-    Matching is case-insensitive using re.IGNORECASE.
-    """
+
+    if not rules:
+        return ": UNKNOWN"
+
     desc = description.strip()
 
     for pattern, label in rules:
@@ -50,32 +91,64 @@ def resolve_payee(description: str, rules: List[Tuple[str, str]]) -> str:
 
     return ": UNKNOWN"
 
-def generate_reports(ofx_path: Path,
-                     groups: List[Dict[str, list]],
-                     password: bytes | None = None,
-                     payees_mapping: list[tuple[str, str]] | None = None,
-                     categories_mapping: dict[str, str] | None = None
+
+def generate_reports(
+    ofx_path: Path,
+    groups: list[dict[str, list]],
+    password: bytes | None = None,
+    payees_mapping: list[tuple[str, str]] | None = None,
+    categories_mapping: dict[str, str] | None = None,
 ) -> None:
+    """Generate OFX reports for grouped statement files.
+
+    Parameters
+    ----------
+    ofx_path:
+        Destination directory for the generated OFX files.
+    groups:
+        Output from :func:`collect_statement_files` grouping files by
+        month.
+    password:
+        Optional ZIP password for extracting statement archives.
+    payees_mapping:
+        Optional list of regex rules for payee resolution.
+    categories_mapping:
+        Optional mapping of payees to category names.
+    """
 
     for group in groups:
         month = group["month"]
         files = group["files"]
 
         if datetime.strptime(month, "%Y-%m") >= datetime(2025, 2, 1):
-            generate_report(ofx_path, files, month, password, payees_mapping, categories_mapping)
+            generate_report(
+                ofx_path,
+                files,
+                month,
+                password,
+                payees_mapping,
+                categories_mapping,
+            )
 
-def generate_report(ofx_path: Path,
-                    files: List[Dict[str, str]],
-                    month: str,
-                    password: bytes | None = None,
-                    payees_mapping: list[tuple[str, str]] | None = None,
-                    categories_mapping: dict[str, str] | None = None) -> None:
+
+def generate_report(
+    ofx_path: Path,
+    files: list[dict[str, str]],
+    month: str,
+    password: bytes | None = None,
+    payees_mapping: list[tuple[str, str]] | None = None,
+    categories_mapping: dict[str, str] | None = None,
+) -> None:
+    """Generate an OFX file for a group of statement HTML files."""
+
     html_files = unzip_group(files, password)
-    ofx_data = []
+    ofx_data: list[dict] = []
+
+    payees_mapping = payees_mapping or []
+    categories_mapping = categories_mapping or {}
 
     try:
         for idx, f in enumerate(html_files):
-
             transactions = extract_transactions(f)
             for txn in transactions:
                 payee = resolve_payee(txn["details"], payees_mapping)
@@ -85,18 +158,20 @@ def generate_report(ofx_path: Path,
             start_balance, end_balance = extract_balances(f)
 
             info = {"name": files[idx]["account"]}
-            ofx_data.append({
-                "info": info,
-                "transactions": transactions,
-                "start_balance": start_balance,
-                "end_balance": end_balance
-            })
+            ofx_data.append(
+                {
+                    "info": info,
+                    "transactions": transactions,
+                    "start_balance": start_balance,
+                    "end_balance": end_balance,
+                }
+            )
 
-        # debug print
         for entry in ofx_data:
-            print(f">>> {entry['info']['name']} (start: {entry['start_balance']} end: {entry['end_balance']})")
-            #for t in entry["transactions"]:
-            #    print(f"   {t}")
+            print(
+                f">>> {entry['info']['name']} (start: {entry['start_balance']} "
+                f"end: {entry['end_balance']})"
+            )
 
         write_ofx_file(ofx_data, ofx_path / month)
 
