@@ -44,7 +44,7 @@ def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path 
     return None
 
 
-def unzip_group(zip_items: list[dict], password: bytes | None = None) -> list[Path]:
+def unzip_group(zip_items: list[dict]) -> list[Path]:
     """Unzip each archive in ``zip_items`` and collect extracted HTML paths."""
 
     from tempfile import mkdtemp
@@ -54,6 +54,7 @@ def unzip_group(zip_items: list[dict], password: bytes | None = None) -> list[Pa
 
     for idx, item in enumerate(zip_items):
         zip_path = Path(item["path"])
+        password = item.get("password")
         target_dir = tmp_root / str(idx)
         target_dir.mkdir(parents=True, exist_ok=True)
 

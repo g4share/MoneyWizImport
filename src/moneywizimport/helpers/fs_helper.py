@@ -9,17 +9,13 @@ RE_VB = re.compile(r"^VB_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$", re.IGNORECASE)
 logger = logging.getLogger(__name__)
 
 
-def collect_statement_files(
-    statement_dir: Path, bank_sets: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
+def collect_statement_files(banks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Group statement archives by month.
 
     Parameters
     ----------
-    statement_dir:
-        Directory containing the archived statements.
-    bank_sets:
-        Configuration describing how to match and label account files.
+    banks:
+        Configuration describing how to locate and label account files.
 
     Returns
     -------
@@ -28,10 +24,15 @@ def collect_statement_files(
     """
 
     grouped = defaultdict(list)
-    for bank in bank_sets:
+    for bank in banks:
         bank_name = bank["name"]
+        statement_dir = Path(bank["statement_dir"]).expanduser()
         pattern = bank["filter"]
         accounts = bank.get("accounts", [])
+        password = bank.get("zip_password")
+        password_bytes = (
+            password.encode("utf-8") if isinstance(password, str) and password else None
+        )
         iban_map = {acc["iban"]: acc["name"] for acc in accounts}
 
         for file in statement_dir.glob(pattern):
@@ -47,12 +48,15 @@ def collect_statement_files(
                     account_name = acc_name
                     break
 
-            grouped[month_key].append({
-                "file": file.name,
-                "path": str(file.resolve()),  # <== read path
-                "bank": bank_name,
-                "account": account_name
-            })
+            grouped[month_key].append(
+                {
+                    "file": file.name,
+                    "path": str(file.resolve()),
+                    "bank": bank_name,
+                    "account": account_name,
+                    "password": password_bytes,
+                }
+            )
 
     result = []
     for month in sorted(grouped.keys()):

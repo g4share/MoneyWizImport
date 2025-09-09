@@ -1,16 +1,16 @@
-statement_dir: "./statements"
 ofx_dir: "./ofx"
-zip_password: ${VB_ZIP_PASSWORD}
 
-bank_sets:
+banks:
   - name: "Victoria Bank"
+    statement_dir: "./statements"
     filter: "VB_*.zip"
+    zip_password: ${VB_ZIP_PASSWORD}
     accounts:
-      - name: "Salut *8585"
+      - name: "Card 1 *8585"
         iban: "MD66VI022521100011261MDL"
-      - name: "Card 1 *9823"
+      - name: "Card 2 *9823"
         iban: "MD65VI225912310310907131"
-      - name: "Card 2 *0101"
+      - name: "Card 3 *0101"
         iban: "MD11VI225911508140903004"
 
 payees_mapping:

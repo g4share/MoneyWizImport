@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+from typing import Any
 
 from moneywizimport.core.ofx_generator import write_ofx_file
 from moneywizimport.helpers import unzip, zip, unzip_group
@@ -94,8 +95,7 @@ def resolve_payee(description: str, rules: list[tuple[str, str]] | None) -> str:
 
 def generate_reports(
     ofx_path: Path,
-    groups: list[dict[str, list]],
-    password: bytes | None = None,
+    groups: list[dict[str, Any]],
     payees_mapping: list[tuple[str, str]] | None = None,
     categories_mapping: dict[str, str] | None = None,
 ) -> None:
@@ -108,8 +108,6 @@ def generate_reports(
     groups:
         Output from :func:`collect_statement_files` grouping files by
         month.
-    password:
-        Optional ZIP password for extracting statement archives.
     payees_mapping:
         Optional list of regex rules for payee resolution.
     categories_mapping:
@@ -125,7 +123,6 @@ def generate_reports(
                 ofx_path,
                 files,
                 month,
-                password,
                 payees_mapping,
                 categories_mapping,
             )
@@ -133,15 +130,14 @@ def generate_reports(
 
 def generate_report(
     ofx_path: Path,
-    files: list[dict[str, str]],
+    files: list[dict[str, Any]],
     month: str,
-    password: bytes | None = None,
     payees_mapping: list[tuple[str, str]] | None = None,
     categories_mapping: dict[str, str] | None = None,
 ) -> None:
     """Generate an OFX file for a group of statement HTML files."""
 
-    html_files = unzip_group(files, password)
+    html_files = unzip_group(files)
     ofx_data: list[dict] = []
 
     payees_mapping = payees_mapping or []

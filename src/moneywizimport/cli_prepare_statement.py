@@ -13,12 +13,14 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = ConfigHelper(Path(args.config))
-    config = cfg.load_config()
 
-    statement_dir = Path(config["statement_dir"]).expanduser()
-    password = cfg.get_zip_password()
-
-    prepare_archives(statement_dir=statement_dir, password=password)
+    for bank in cfg.load_banks():
+        statement_dir = Path(bank["statement_dir"]).expanduser()
+        password = bank.get("zip_password")
+        password_bytes = (
+            password.encode("utf-8") if isinstance(password, str) and password else None
+        )
+        prepare_archives(statement_dir=statement_dir, password=password_bytes)
 
 if __name__ == "__main__":
     main()
