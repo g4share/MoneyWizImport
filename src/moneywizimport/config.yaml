@@ -8,10 +8,13 @@ banks:
     accounts:
       - name: "Card 1 *8585"
         iban: "MD66VI022521100011261MDL"
+        currency: MDL
       - name: "Card 2 *9823"
         iban: "MD65VI225912310310907131"
+        currency: MDL
       - name: "Card 3 *0101"
         iban: "MD11VI225911508140903004"
+        currency: MDL
 
 payees_mapping:
   - match: BONUS SALUT

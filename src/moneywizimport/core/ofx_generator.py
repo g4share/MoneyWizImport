@@ -56,6 +56,8 @@ NEWFILEUID:NONE
         for i, txn in enumerate(transactions, start=1):
             stmt_trns += write_transaction(txn, i)
 
+### CODEX: <CURDEF>MDL</CURDEF>  - read from YAML
+### CODEX: <BANKID>VictoriaBank</BANKID> read from YAML ( bank_sets / name, send at the same level as <ACCTID>{account_name}</ACCTID>
         body += f"""
     <STMTTRNRS>
       <TRNUID>{idx}</TRNUID>
@@ -64,7 +66,7 @@ NEWFILEUID:NONE
         <SEVERITY>INFO</SEVERITY>
       </STATUS>
       <STMTRS>
-        <CURDEF>MDL</CURDEF>
+        <CURDEF>MDL</CURDEF> 
         <BANKACCTFROM>
           <BANKID>VictoriaBank</BANKID>
           <ACCTID>{account_name}</ACCTID>
@@ -110,6 +112,7 @@ def write_transaction(txn: dict, index: int) -> str:
     payee = txn.get("payee", "").strip()
     category = txn.get("category", "").strip()
 
+### CODEX: default value - read from config
     currency = txn.get("currency", "MDL").strip()
     foreign = txn.get("foreign_amount", "").strip()
 

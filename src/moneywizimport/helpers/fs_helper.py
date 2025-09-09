@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 from typing import Any
 
+### use instead bank filter from config
 RE_VB = re.compile(r"^VB_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
