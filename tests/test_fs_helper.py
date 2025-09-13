@@ -27,7 +27,7 @@ def test_collects_all_banks(tmp_path):
         },
     ]
 
-    regex = r"^([A-Za-z]+)_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$"
+    regex = r"^(?P<bank>[A-Za-z]+)_(?P<year>\d{4})-(?P<month>\d{2})-\d{2}_(?P<iban>.+)\.zip$"
     groups = collect_statement_files(banks, regex)
 
     assert [g["month"] for g in groups] == ["2024-05", "2024-06"]
