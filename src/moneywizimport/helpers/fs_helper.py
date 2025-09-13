@@ -4,19 +4,22 @@ import re
 from collections import defaultdict
 from typing import Any
 
-### use instead bank filter from config
-RE_VB = re.compile(r"^VB_(\d{4})-(\d{2})-\d{2}_(.+)\.zip$", re.IGNORECASE)
-
 logger = logging.getLogger(__name__)
 
 
-def collect_statement_files(banks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def collect_statement_files(
+    banks: list[dict[str, Any]], filename_regex: str
+) -> list[dict[str, Any]]:
     """Group statement archives by month.
 
     Parameters
     ----------
     banks:
         Configuration describing how to locate and label account files.
+    filename_regex:
+        Regex pattern used to parse statement filenames. The pattern must
+        expose the bank code, year, month and IBAN token in the first four
+        capture groups.
 
     Returns
     -------
@@ -24,6 +27,7 @@ def collect_statement_files(banks: list[dict[str, Any]]) -> list[dict[str, Any]]
         List of dictionaries of the form ``{"month": str, "files": list}``.
     """
 
+    re_statement = re.compile(filename_regex, re.IGNORECASE)
     grouped = defaultdict(list)
     for bank in banks:
         bank_name = bank["name"]
@@ -37,10 +41,10 @@ def collect_statement_files(banks: list[dict[str, Any]]) -> list[dict[str, Any]]
         iban_map = {acc["iban"]: acc["name"] for acc in accounts}
 
         for file in statement_dir.glob(pattern):
-            m = RE_VB.match(file.name)
+            m = re_statement.match(file.name)
             if not m:
                 continue
-            year, month, iban_token = m.group(1), m.group(2), m.group(3)
+            _, year, month, iban_token = m.group(1), m.group(2), m.group(3), m.group(4)
             month_key = f"{year}-{month}"
 
             account_name = "UNKNOWN"

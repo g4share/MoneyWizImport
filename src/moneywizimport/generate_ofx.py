@@ -16,7 +16,8 @@ def main() -> None:
     cfg = ConfigHelper(Path(args.config))
     config = cfg.load_config()
     banks = cfg.load_banks()
-    groups = collect_statement_files(banks)
+    filename_regex = config["statement_regex"]
+    groups = collect_statement_files(banks, filename_regex)
     ofx_path = Path(config["ofx_dir"])
 
     categories_mapping = cfg.load_category_mapping()
