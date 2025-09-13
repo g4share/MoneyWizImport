@@ -23,9 +23,10 @@ def collect_statement_files(banks: list[dict[str, Any]]) -> list[dict[str, Any]]
     """
 
     grouped = defaultdict(list)
+
+    regex_collection: list[dict[str, Any]] = []
     for bank in banks:
         bank_name = bank["name"]
-        statement_dir = Path(bank["statement_dir"]).expanduser()
         accounts = bank.get("accounts", [])
         password = bank.get("zip_password")
         password_bytes = (
@@ -33,40 +34,51 @@ def collect_statement_files(banks: list[dict[str, Any]]) -> list[dict[str, Any]]
         )
         iban_map = {acc["iban"]: acc["name"] for acc in accounts}
 
-        file_patterns = [
-            fconf["filter"] for fconf in bank.get("files", [])
-        ] or [bank["filter"]]
+        patterns = [fconf["filter"] for fconf in bank.get("files", [])] or [bank["filter"]]
+        for pattern in patterns:
+            regex_collection.append(
+                {
+                    "regex": re.compile(pattern, re.IGNORECASE),
+                    "bank": bank_name,
+                    "iban_map": iban_map,
+                    "password": password_bytes,
+                }
+            )
 
-        for pattern in file_patterns:
-            regex = re.compile(pattern, re.IGNORECASE)
+    if not banks:
+        return []
 
-            for file in statement_dir.iterdir():
-                if not file.is_file():
-                    continue
-                m = regex.match(file.name)
-                if not m:
-                    continue
-                group_dict = m.groupdict()
-                year = group_dict.get("year", m.group(1))
-                month = group_dict.get("month", m.group(2))
-                iban_token = group_dict.get("iban", m.group(3))
-                month_key = f"{year}-{month}"
+    statement_dir = Path(banks[0]["statement_dir"]).expanduser()
 
-                account_name = "UNKNOWN"
-                for iban, acc_name in iban_map.items():
-                    if iban_token.lower() == iban.lower():
-                        account_name = acc_name
-                        break
+    for file in statement_dir.iterdir():
+        if not file.is_file():
+            continue
+        for info in regex_collection:
+            m = info["regex"].match(file.name)
+            if not m:
+                continue
+            group_dict = m.groupdict()
+            year = group_dict.get("year", m.group(1))
+            month = group_dict.get("month", m.group(2))
+            iban_token = group_dict.get("iban", m.group(3))
+            month_key = f"{year}-{month}"
 
-                grouped[month_key].append(
-                    {
-                        "file": file.name,
-                        "path": str(file.resolve()),
-                        "bank": bank_name,
-                        "account": account_name,
-                        "password": password_bytes,
-                    }
-                )
+            account_name = "UNKNOWN"
+            for iban, acc_name in info["iban_map"].items():
+                if iban_token.lower() == iban.lower():
+                    account_name = acc_name
+                    break
+
+            grouped[month_key].append(
+                {
+                    "file": file.name,
+                    "path": str(file.resolve()),
+                    "bank": info["bank"],
+                    "account": account_name,
+                    "password": info["password"],
+                }
+            )
+            break
 
     result = []
     for month in sorted(grouped.keys()):

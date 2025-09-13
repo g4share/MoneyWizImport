@@ -27,7 +27,6 @@ def test_collects_all_banks(tmp_path):
         },
         {
             "name": "Bank B",
-            "statement_dir": str(tmp_path),
             "accounts": [{"name": "Account 2", "iban": "ACC2"}],
             "filter": maib_regex,
         },
