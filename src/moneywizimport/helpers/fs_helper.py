@@ -18,8 +18,9 @@ def collect_statement_files(
         Configuration describing how to locate and label account files.
     filename_regex:
         Regex pattern used to parse statement filenames. The pattern must
-        expose the bank code, year, month and IBAN token in the first four
-        capture groups.
+        capture the bank code, year, month and IBAN token. The ``year`` and
+        ``month`` groups can be named to make the match object easier to work
+        with.
 
     Returns
     -------
@@ -44,7 +45,10 @@ def collect_statement_files(
             m = re_statement.match(file.name)
             if not m:
                 continue
-            _, year, month, iban_token = m.group(1), m.group(2), m.group(3), m.group(4)
+            group_dict = m.groupdict()
+            year = group_dict.get("year", m.group(2))
+            month = group_dict.get("month", m.group(3))
+            iban_token = group_dict.get("iban", m.group(4))
             month_key = f"{year}-{month}"
 
             account_name = "UNKNOWN"
