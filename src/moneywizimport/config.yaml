@@ -1,9 +1,9 @@
 ofx_dir: "./ofx"
+statement_dir: "./statements"
 
 banks:
   - name: "Victoria Bank"
-    statement_dir: "./statements"
-    filter: "^VB_(?P<year>\\d{4})-(?P<month>\\d{2})-\\d{2}_(.+)\\.zip$"
+    filter: "^VB_(?P<year>\\d{4})-(?P<month>\\d{2})-\\d{2}_(?P<iban>.+)\\.zip$"
     zip_password: ${VB_ZIP_PASSWORD}
     accounts:
       - name: "Salut *8585"
@@ -16,8 +16,7 @@ banks:
         iban: "MD11VI225911508140903004"
         currency: MDL
   - name: "Moldova-Agroindbank"
-    statement_dir: "./statements"
-    filter: "MAIB_(?P<year>\\d{4})-(?P<month>\\d{2})-\\d{2}_(.+)\\.zip$"
+    filter: "^MAIB_(?P<year>\\d{4})-(?P<month>\\d{2})-\\d{2}_(?P<iban>.+)\\.zip$"
     zip_password: ${MAIB_ZIP_PASSWORD}
     accounts:
       - name: "Daily *0799"

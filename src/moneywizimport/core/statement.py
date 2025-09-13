@@ -144,16 +144,19 @@ def generate_report(
     categories_mapping = categories_mapping or {}
 
     try:
-        for idx, f in enumerate(html_files):
-            transactions = extract_transactions(f)
+        for idx, html_file in enumerate(html_files):
+            transactions = extract_transactions(html_file)
             for txn in transactions:
                 payee = resolve_payee(txn["details"], payees_mapping)
                 txn["payee"] = payee
                 txn["category"] = resolve_category(payee, categories_mapping)
 
-            start_balance, end_balance = extract_balances(f)
+            start_balance, end_balance = extract_balances(html_file)
 
-            info = {"name": files[idx]["account"]}
+            info = {
+                "bank": files[idx]["bank"],
+                "account": files[idx]["account"],
+            }
             ofx_data.append(
                 {
                     "info": info,
@@ -165,11 +168,11 @@ def generate_report(
 
         for entry in ofx_data:
             print(
-                f">>> {entry['info']['name']} (start: {entry['start_balance']} "
-                f"end: {entry['end_balance']})"
+                f">>> {entry['info']['account']} "
+                f"(start: {entry['start_balance']} end: {entry['end_balance']})"
             )
 
-        write_ofx_file(ofx_data, ofx_path / month)
+        #write_ofx_file(ofx_data, ofx_path / month)
 
     finally:
         delete_files(html_files)

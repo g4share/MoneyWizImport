@@ -43,22 +43,23 @@ def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path 
                 return tmp_dir / info.filename
     return None
 
-
 def unzip_group(zip_items: list[dict]) -> list[Path]:
     """Unzip each archive in ``zip_items`` and collect extracted HTML paths."""
 
     from tempfile import mkdtemp
-
     tmp_root = Path(mkdtemp())
-    results = []
-
+    results: list[Path] = []
+    print("Unzipping group...")
+    print(zip_items)
     for idx, item in enumerate(zip_items):
         zip_path = Path(item["path"])
-        password = item.get("password")
+        password = item.get("zip_password")
         target_dir = tmp_root / str(idx)
         target_dir.mkdir(parents=True, exist_ok=True)
 
+        print(f"Extracting {zip_path}, pwd: {password}")
         extracted = unzip(zip_path, target_dir, password=password)
+        print(f"Extracted  {zip_path} to {extracted}")
         if extracted:
             results.append(extracted)
 

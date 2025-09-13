@@ -30,10 +30,6 @@ class ConfigHelper:
             return os.getenv(env_key, "")
         return value
 
-    def load_banks(self) -> list[dict[str, Any]]:
-        """Return the list of bank configurations."""
-        return self.load_config().get("banks", [])
-
     def load_category_mapping(self) -> dict[str, str]:
         """Load payee-to-category mapping from the ``categories`` section."""
 
@@ -60,3 +56,29 @@ class ConfigHelper:
         return [
             (item["match"], item["name"]) for item in payees if "match" in item and "name" in item
         ]
+
+    def compile_bank_patterns(self) -> dict[str, dict]:
+        """Compile regex filter, account IBAN patterns and zip password for each bank."""
+        raw = self.load_config()
+        compiled: dict[str, dict] = {}
+
+        for bank in raw.get("banks", []):
+            name = bank["name"]
+
+            bank_filter = bank.get("filter")
+            filter_re = re.compile(bank_filter) if bank_filter else None
+
+            accounts = bank.get("accounts", [])
+            acc_patterns: list[tuple[re.Pattern, str]] = []
+            for acc in accounts:
+                iban = acc.get("iban")
+                if iban:
+                    acc_patterns.append((re.compile(iban), acc["name"]))
+
+            compiled[name] = {
+                "filter": filter_re,
+                "accounts": acc_patterns,
+                "zip_password": bank.get("zip_password"),
+            }
+
+        return compiled
