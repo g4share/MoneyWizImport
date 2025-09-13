@@ -6,21 +6,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
-def collect_statement_files(
-    banks: list[dict[str, Any]], filename_regex: str
-) -> list[dict[str, Any]]:
+def collect_statement_files(banks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Group statement archives by month.
 
     Parameters
     ----------
     banks:
-        Configuration describing how to locate and label account files.
-    filename_regex:
-        Regex pattern used to parse statement filenames. The pattern must
-        capture the bank code, year, month and IBAN token. The ``year`` and
-        ``month`` groups can be named to make the match object easier to work
-        with.
+        Configuration describing how to locate and label account files. Each
+        bank may define either a top-level ``filter`` regex or a ``files`` list
+        where each item provides its own ``filter`` regex.
 
     Returns
     -------
@@ -28,12 +22,10 @@ def collect_statement_files(
         List of dictionaries of the form ``{"month": str, "files": list}``.
     """
 
-    re_statement = re.compile(filename_regex, re.IGNORECASE)
     grouped = defaultdict(list)
     for bank in banks:
         bank_name = bank["name"]
         statement_dir = Path(bank["statement_dir"]).expanduser()
-        pattern = bank["filter"]
         accounts = bank.get("accounts", [])
         password = bank.get("zip_password")
         password_bytes = (
@@ -41,39 +33,45 @@ def collect_statement_files(
         )
         iban_map = {acc["iban"]: acc["name"] for acc in accounts}
 
-        for file in statement_dir.glob(pattern):
-            m = re_statement.match(file.name)
-            if not m:
-                continue
-            group_dict = m.groupdict()
-            year = group_dict.get("year", m.group(2))
-            month = group_dict.get("month", m.group(3))
-            iban_token = group_dict.get("iban", m.group(4))
-            month_key = f"{year}-{month}"
+        file_patterns = [
+            fconf["filter"] for fconf in bank.get("files", [])
+        ] or [bank["filter"]]
 
-            account_name = "UNKNOWN"
-            for iban, acc_name in iban_map.items():
-                if iban_token.lower() == iban.lower():
-                    account_name = acc_name
-                    break
+        for pattern in file_patterns:
+            regex = re.compile(pattern, re.IGNORECASE)
 
-            grouped[month_key].append(
-                {
-                    "file": file.name,
-                    "path": str(file.resolve()),
-                    "bank": bank_name,
-                    "account": account_name,
-                    "password": password_bytes,
-                }
-            )
+            for file in statement_dir.iterdir():
+                if not file.is_file():
+                    continue
+                m = regex.match(file.name)
+                if not m:
+                    continue
+                group_dict = m.groupdict()
+                year = group_dict.get("year", m.group(1))
+                month = group_dict.get("month", m.group(2))
+                iban_token = group_dict.get("iban", m.group(3))
+                month_key = f"{year}-{month}"
+
+                account_name = "UNKNOWN"
+                for iban, acc_name in iban_map.items():
+                    if iban_token.lower() == iban.lower():
+                        account_name = acc_name
+                        break
+
+                grouped[month_key].append(
+                    {
+                        "file": file.name,
+                        "path": str(file.resolve()),
+                        "bank": bank_name,
+                        "account": account_name,
+                        "password": password_bytes,
+                    }
+                )
 
     result = []
     for month in sorted(grouped.keys()):
         files = sorted(grouped[month], key=lambda x: x["file"])
-        result.append({
-            "month": month,
-            "files": files
-        })
+        result.append({"month": month, "files": files})
 
     return result
 
