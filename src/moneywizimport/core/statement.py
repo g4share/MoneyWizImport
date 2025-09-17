@@ -99,34 +99,16 @@ def generate_reports(
     payees_mapping: list[tuple[str, str]] | None = None,
     categories_mapping: dict[str, str] | None = None,
 ) -> None:
-    """Generate OFX reports for grouped statement files.
-
-    Parameters
-    ----------
-    ofx_path:
-        Destination directory for the generated OFX files.
-    groups:
-        Output from :func:`collect_statement_files` grouping files by
-        month.
-    payees_mapping:
-        Optional list of regex rules for payee resolution.
-    categories_mapping:
-        Optional mapping of payees to category names.
-    """
-
     for group in groups:
         month = group["month"]
-        files = [item["file"] for item in group["items"]]
 
         if datetime.strptime(month, "%Y-%m") == datetime(2025, 2, 1):
             generate_report(
                 ofx_path,
-                files,
-                month,
+                group,
                 payees_mapping,
                 categories_mapping,
             )
-
 
 def generate_report(
     ofx_path: Path,
@@ -143,16 +125,20 @@ def generate_report(
     payees_mapping = payees_mapping or []
     categories_mapping = categories_mapping or {}
 
-    html_files = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        html_files = []
 
-    try:
-        for entry in files:
+        for idx, entry in enumerate(files):
             file = entry["file"]
             bank = entry["bank"]
             account = entry["account"]
             password = entry["password"]
 
-            html_file = unzip(file, password=password)   # ← parola e aici
+            file_tmp = tmp_dir / str(idx)
+            file_tmp.mkdir(parents=True, exist_ok=True)
+
+            html_file = unzip(file, file_tmp, password=password)
             if not html_file:
                 continue
             html_files.append(html_file)
@@ -174,17 +160,9 @@ def generate_report(
                 }
             )
 
-        for entry in ofx_data:
-            print(
-                f">>> {entry['info']['account']} "
-                f"(start: {entry['start_balance']} end: {entry['end_balance']})"
-            )
+        print(month)
+        print_ofx_data(ofx_data)
 
-        # output_path = ofx_path / f"{month}.ofx"
-        # write_ofx_file(ofx_data, output_path)
-
-    finally:
-        delete_files(html_files)
 
 def print_ofx_data(ofx_data: list[dict]) -> None:
     """Pretty-print the prepared OFX data structure."""

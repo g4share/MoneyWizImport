@@ -25,12 +25,6 @@ def zip(files: list[Path], archive_name: Path, password: bytes | None = None) ->
 
 
 def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path | None:
-    """Extract ``fullExtras.html`` from ``zip_path`` into ``tmp_dir``.
-
-    Returns the path to the extracted file or ``None`` if it was not
-    found.
-    """
-
     with pyzipper.AESZipFile(zip_path) as zf:
         if password:
             zf.pwd = password
@@ -39,10 +33,12 @@ def unzip(zip_path: Path, tmp_dir: Path, password: bytes | None = None) -> Path 
                 continue
             if Path(info.filename).name == "fullExtras.html":
                 (tmp_dir / info.filename).parent.mkdir(parents=True, exist_ok=True)
-                zf.extract(info, tmp_dir)
+                zf.extract(info, path=tmp_dir)
                 return tmp_dir / info.filename
     return None
 
+
+#delete
 def unzip_group(zip_items: list[dict]) -> list[Path]:
     """Unzip each archive in ``zip_items`` and collect extracted HTML paths."""
 
