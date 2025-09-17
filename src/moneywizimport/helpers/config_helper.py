@@ -78,7 +78,7 @@ class ConfigHelper:
             compiled[name] = {
                 "filter": filter_re,
                 "accounts": acc_patterns,
-                "zip_password": bank.get("zip_password"),
+                "password": bank.get("zip_password"),
             }
 
         return compiled

@@ -53,7 +53,7 @@ def unzip_group(zip_items: list[dict]) -> list[Path]:
     print(zip_items)
     for idx, item in enumerate(zip_items):
         zip_path = Path(item["path"])
-        password = item.get("zip_password")
+        password = item.get("password")
         target_dir = tmp_root / str(idx)
         target_dir.mkdir(parents=True, exist_ok=True)
 

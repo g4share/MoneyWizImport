@@ -5,6 +5,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
+from pathlib import Path
 
 def collect_statement_files(statement_dir: Path, bank_patterns: dict) -> list[dict]:
     def _match_file(file: Path):
@@ -22,31 +23,30 @@ def collect_statement_files(statement_dir: Path, bank_patterns: dict) -> list[di
                     account_name = acc_name
                     break
 
-            return bank, account_name, month_key
+            return month_key, bank, account_name, data.get("password")
+
         return None
 
-    groups: dict[str, list[dict]] = defaultdict(list)
+    grouped = defaultdict(list)
 
     for file in statement_dir.iterdir():
         if not file.is_file():
             continue
-
         match = _match_file(file)
         if not match:
             continue
 
-        bank, account, month_key = match
-
-        groups[month_key].append({
-            "file": file.name,
-            "path": str(file),
+        month_key, bank, account_name, password = match
+        grouped[month_key].append({
             "bank": bank,
-            "account": account,
+            "account": account_name,
+            "password": password,
+            "file": file,
         })
 
     return [
-        {"month": month, "files": files}
-        for month, files in sorted(groups.items())
+        {"month": month, "items": items}
+        for month, items in sorted(grouped.items(), key=lambda x: x[0])
     ]
 
 def delete_files(files: list[Path]) -> None:

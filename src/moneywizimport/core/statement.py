@@ -116,9 +116,9 @@ def generate_reports(
 
     for group in groups:
         month = group["month"]
-        files = group["files"]
+        files = [item["file"] for item in group["items"]]
 
-        if datetime.strptime(month, "%Y-%m") >= datetime(2025, 2, 1):
+        if datetime.strptime(month, "%Y-%m") == datetime(2025, 2, 1):
             generate_report(
                 ofx_path,
                 files,
@@ -130,21 +130,33 @@ def generate_reports(
 
 def generate_report(
     ofx_path: Path,
-    files: list[dict[str, Any]],
-    month: str,
+    group: dict[str, Any],
     payees_mapping: list[tuple[str, str]] | None = None,
     categories_mapping: dict[str, str] | None = None,
 ) -> None:
-    """Generate an OFX file for a group of statement HTML files."""
+    """Generate an OFX file for one group of statement files."""
 
-    html_files = unzip_group(files)
+    month = group["month"]
+    files = group["items"]
+
     ofx_data: list[dict] = []
-
     payees_mapping = payees_mapping or []
     categories_mapping = categories_mapping or {}
 
+    html_files = []
+
     try:
-        for idx, html_file in enumerate(html_files):
+        for entry in files:
+            file = entry["file"]
+            bank = entry["bank"]
+            account = entry["account"]
+            password = entry["password"]
+
+            html_file = unzip(file, password=password)   # ← parola e aici
+            if not html_file:
+                continue
+            html_files.append(html_file)
+
             transactions = extract_transactions(html_file)
             for txn in transactions:
                 payee = resolve_payee(txn["details"], payees_mapping)
@@ -153,13 +165,9 @@ def generate_report(
 
             start_balance, end_balance = extract_balances(html_file)
 
-            info = {
-                "bank": files[idx]["bank"],
-                "account": files[idx]["account"],
-            }
             ofx_data.append(
                 {
-                    "info": info,
+                    "info": {"bank": bank, "account": account},
                     "transactions": transactions,
                     "start_balance": start_balance,
                     "end_balance": end_balance,
@@ -172,7 +180,26 @@ def generate_report(
                 f"(start: {entry['start_balance']} end: {entry['end_balance']})"
             )
 
-        #write_ofx_file(ofx_data, ofx_path / month)
+        # output_path = ofx_path / f"{month}.ofx"
+        # write_ofx_file(ofx_data, output_path)
 
     finally:
         delete_files(html_files)
+
+def print_ofx_data(ofx_data: list[dict]) -> None:
+    """Pretty-print the prepared OFX data structure."""
+
+    for entry in ofx_data:
+        info = entry["info"]
+        print(f"Account: {info['account']} ({info['bank']})")
+        print(f"  Start balance: {entry['start_balance']}")
+        print(f"  End balance:   {entry['end_balance']}")
+        print("  Transactions:")
+        for txn in entry["transactions"]:
+            print(
+                f"    {txn.get('date','????')} | "
+                f"{txn.get('amount',0):>10} | "
+                f"{txn.get('payee','UNKNOWN'):<20} | "
+                f"{txn.get('category','-')}"
+            )
+        print()
