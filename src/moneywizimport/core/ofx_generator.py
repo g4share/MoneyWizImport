@@ -1,19 +1,11 @@
 from pathlib import Path
 from datetime import datetime
 
+from moneywizimport.model.ofx_models import OfxReport, Transaction
 
-def write_ofx_file(ofx_data: list[dict], ofx_path: Path) -> None:
-    """Write a list of statement dictionaries to an OFX file.
 
-    Parameters
-    ----------
-    ofx_data:
-        Sequence of account statement dictionaries. Each item should
-        contain ``info`` and ``transactions`` keys.
-    ofx_path:
-        Destination path *without* extension. The ``.ofx`` suffix will be
-        appended automatically.
-    """
+def write_ofx_file(ofx_data: list[OfxReport], ofx_path: Path) -> None:
+    """Write a list of OfxReport objects to an OFX file."""
 
     output_path = ofx_path.with_suffix(".ofx")
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -48,16 +40,15 @@ NEWFILEUID:NONE
 """
 
     body = ""
-    for idx, entry in enumerate(ofx_data, start=1):
-        account_name = entry["info"]["name"]
-        transactions = entry["transactions"]
+    for idx, report in enumerate(ofx_data, start=1):
+        bank = report.info.bank
+        account_id = report.info.account
+        transactions = report.transactions
 
         stmt_trns = ""
         for i, txn in enumerate(transactions, start=1):
             stmt_trns += write_transaction(txn, i)
 
-### CODEX: <CURDEF>MDL</CURDEF>  - read from YAML
-### CODEX: <BANKID>VictoriaBank</BANKID> read from YAML ( bank_sets / name, send at the same level as <ACCTID>{account_name}</ACCTID>
         body += f"""
     <STMTTRNRS>
       <TRNUID>{idx}</TRNUID>
@@ -66,10 +57,10 @@ NEWFILEUID:NONE
         <SEVERITY>INFO</SEVERITY>
       </STATUS>
       <STMTRS>
-        <CURDEF>MDL</CURDEF> 
+        <CURDEF>MDL</CURDEF>
         <BANKACCTFROM>
-          <BANKID>VictoriaBank</BANKID>
-          <ACCTID>{account_name}</ACCTID>
+          <BANKID>{bank}</BANKID>
+          <ACCTID>{account_id}</ACCTID>
           <ACCTTYPE>CHECKING</ACCTTYPE>
         </BANKACCTFROM>
         <BANKTRANLIST>{stmt_trns}
@@ -84,43 +75,26 @@ NEWFILEUID:NONE
 
     content = header + signon + body + footer
     output_path.write_text(content, encoding="utf-8")
-    print(f"    Wrote → {output_path}")
 
 
-def write_transaction(txn: dict, index: int) -> str:
-    """Return an OFX ``<STMTTRN>`` block for a single transaction.
+def write_transaction(txn: Transaction, index: int) -> str:
+    """Return an OFX <STMTTRN> block for a single transaction."""
 
-    Parameters
-    ----------
-    txn:
-        Transaction dictionary containing ``date``, ``time``, ``amount``
-        and related metadata.
-    index:
-        1-based transaction index used to build a unique FITID.
+    fitid = f"{txn.date.replace('-', '').replace(' ', '').replace(':', '')}{index:04d}"
 
-    Returns
-    -------
-    str
-        Serialized OFX block representing the transaction.
-    """
+    if " " in txn.date:
+        date_part, time_part = txn.date.split(" ", 1)
+        dtposted = f"{date_part.replace('-', '')}{time_part.replace(':', '')}"
+    else:
+        dtposted = f"{txn.date.replace('-', '')}000000"
 
-    fitid = f"{txn['date'].replace('-', '')}{index:04d}"
-    dtposted = f"{txn['date'].replace('-', '')}{txn['time'].replace(':', '')}"
-
-    amount = txn["amount"]
-    details = txn["details"]
-    payee = txn.get("payee", "").strip()
-    category = txn.get("category", "").strip()
-
-### CODEX: default value - read from config
-    currency = txn.get("currency", "MDL").strip()
-    foreign = txn.get("foreign_amount", "").strip()
+    amount = txn.amount
+    details = txn.details or ""
+    payee = (txn.payee or "").strip()
+    category = (txn.category or "").strip()
 
     if payee == ": UNKNOWN":
-        if currency != "MDL" and foreign:
-            memo = f"{foreign} {currency} : {details}"
-        else:
-            memo = details
+        memo = details
     else:
         memo = ""
 

@@ -1,16 +1,30 @@
-from pathlib import Path
+import shutil
 import logging
-import re
+
+from pathlib import Path
 from collections import defaultdict
+
+from moneywizimport.model.bank_config import BankPattern
+from moneywizimport.model.statement_groups import StatementGroup, StatementFile
 
 logger = logging.getLogger(__name__)
 
-from pathlib import Path
+#
+def collect_statement_files(statement_dir: Path, bank_patterns: list[BankPattern]) -> list[StatementGroup]:
+    groups: list[StatementGroup] = []
 
-def collect_statement_files(statement_dir: Path, bank_patterns: dict) -> list[dict]:
+    def _get_or_create_group(month_key: str) -> StatementGroup:
+        for g in groups:
+            if g.month == month_key:
+                return g
+
+        group = StatementGroup(month=month_key, items=[])
+        groups.append(group)
+        return group
+
     def _match_file(file: Path):
-        for bank, data in bank_patterns.items():
-            m = data["filter"].match(file.name)
+        for bank in bank_patterns:
+            m = bank.filter.match(file.name)
             if not m:
                 continue
 
@@ -18,43 +32,53 @@ def collect_statement_files(statement_dir: Path, bank_patterns: dict) -> list[di
             month_key = f"{year}-{month}"
 
             account_name = "UNKNOWN"
-            for pattern, acc_name in data["accounts"]:
-                if pattern.fullmatch(iban):
-                    account_name = acc_name
+            for acc in bank.accounts:
+                if acc.iban == iban:
+                    account_name = acc.name
                     break
 
-            return month_key, bank, account_name, data.get("password")
+            return month_key, bank.name, account_name, bank.zip_password
 
         return None
-
-    grouped = defaultdict(list)
 
     for file in statement_dir.iterdir():
         if not file.is_file():
             continue
+
         match = _match_file(file)
         if not match:
             continue
 
-        month_key, bank, account_name, password = match
-        grouped[month_key].append({
-            "bank": bank,
-            "account": account_name,
-            "password": password,
-            "file": file,
-        })
+        month_key, bank_name, account_name, password = match
+        stmt_file = StatementFile(
+            bank=bank_name,
+            account=account_name,
+            currency="MDL", #TODO: Read from config
+            password=password,
+            file=file,
+        )
 
-    return [
-        {"month": month, "items": items}
-        for month, items in sorted(grouped.items(), key=lambda x: x[0])
-    ]
+        group = _get_or_create_group(month_key)
+        group.add(stmt_file)
 
-def delete_files(files: list[Path]) -> None:
-    """Remove all files from ``files`` ignoring individual errors."""
+    return groups
 
-    for file_path in files:
+
+def delete_paths(paths: list[Path]) -> None:
+    """Remove files or directories from ``paths`` ignoring individual errors."""
+    for path in paths:
         try:
-            if file_path.exists():
-                file_path.unlink()
+            if path.exists():
+                if path.is_file() or path.is_symlink():
+                    path.unlink()
+                elif path.is_dir():
+                    shutil.rmtree(path, ignore_errors=True)
         except OSError as exc:
-            logger.warning("Failed to delete %s: %s", file_path, exc)
+            logger.warning("Failed to delete %s: %s", path, exc)
+
+
+def copy_file(src: Path, dst: Path) -> bool:
+    if dst.exists():
+        return False
+    shutil.copy(src, dst)
+    return True
