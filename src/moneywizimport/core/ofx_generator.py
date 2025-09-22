@@ -1,117 +1,129 @@
-from pathlib import Path
+"""Utilities for formatting OFX files."""
+
+from __future__ import annotations
+
 from datetime import datetime
+from pathlib import Path
 
 from moneywizimport.model.ofx_models import OfxReport, Transaction
 
 
-#
-def _write_transaction(txn: Transaction, index: int) -> str:
-    """Return an OFX <STMTTRN> block for a single transaction."""
+def _write_transaction(transaction: Transaction, index: int) -> str:
+    """Return an OFX ``<STMTTRN>`` block for ``transaction``."""
 
-    fitid = f"{txn.date.replace('-', '').replace(' ', '').replace(':', '')}{index:04d}"
+    fit_id = f"{transaction.date.replace('-', '').replace(' ', '').replace(':', '')}{index:04d}"
 
-    if " " in txn.date:
-        date_part, time_part = txn.date.split(" ", 1)
-        dtposted = f"{date_part.replace('-', '')}{time_part.replace(':', '')}"
+    if " " in transaction.date:
+        date_part, time_part = transaction.date.split(" ", 1)
+        posted = f"{date_part.replace('-', '')}{time_part.replace(':', '')}"
     else:
-        dtposted = f"{txn.date.replace('-', '')}000000"
+        posted = f"{transaction.date.replace('-', '')}000000"
 
-    amount = txn.amount
-    details = txn.details or ""
-    payee = (txn.payee or "").strip()
-    category = (txn.category or "").strip()
+    amount = transaction.amount
+    payee = (transaction.payee or "").strip()
+    category = (transaction.category or "").strip()
 
-    if payee == ": UNKNOWN":
-        memo = details
-    else:
-        memo = ""
+    memo = transaction.details if payee == ": UNKNOWN" else ""
 
-    result = f"""
-    <STMTTRN>
-      <TRNTYPE>OTHER</TRNTYPE>
-      <DTPOSTED>{dtposted}</DTPOSTED>
-      <TRNAMT>{amount}</TRNAMT>
-      <FITID>{fitid}</FITID>
-      <NAME>{payee}</NAME>
-      <MEMO>{memo}</MEMO>"""
+    result = [
+        "    <STMTTRN>",
+        "      <TRNTYPE>OTHER</TRNTYPE>",
+        f"      <DTPOSTED>{posted}</DTPOSTED>",
+        f"      <TRNAMT>{amount}</TRNAMT>",
+        f"      <FITID>{fit_id}</FITID>",
+        f"      <NAME>{payee}</NAME>",
+        f"      <MEMO>{memo}</MEMO>",
+    ]
 
     if category and category != ": UNKNOWN":
-        result += f"""
-      <CATEGORY>{category}</CATEGORY>"""
+        result.append(f"      <CATEGORY>{category}</CATEGORY>")
 
-    result += """
-    </STMTTRN>"""
-    return result
+    result.append("    </STMTTRN>")
+    return "\n".join(result)
 
-#
-def write_ofx_file(ofx_data: list[OfxReport], ofx_path: Path) -> None:
-    """Write a list of OfxReport objects to an OFX file."""
 
-    output_path = ofx_path.with_suffix(".ofx")
+def write_ofx_file(ofx_reports: list[OfxReport], output_path: Path) -> Path:
+    """Write ``ofx_reports`` to ``output_path`` and return the resulting path."""
+
+    output_path = output_path.with_suffix(".ofx")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    now = datetime.now().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
-    header = """OFXHEADER:100
-DATA:OFXSGML
-VERSION:102
-SECURITY:NONE
-ENCODING:USASCII
-CHARSET:1252
-COMPRESSION:NONE
-OLDFILEUID:NONE
-NEWFILEUID:NONE
+    header = "\n".join(
+        [
+            "OFXHEADER:100",
+            "DATA:OFXSGML",
+            "VERSION:102",
+            "SECURITY:NONE",
+            "ENCODING:USASCII",
+            "CHARSET:1252",
+            "COMPRESSION:NONE",
+            "OLDFILEUID:NONE",
+            "NEWFILEUID:NONE",
+            "",
+        ]
+    )
 
-"""
+    sign_on = "\n".join(
+        [
+            "<OFX>",
+            "  <SIGNONMSGSRSV1>",
+            "    <SONRS>",
+            "      <STATUS>",
+            "        <CODE>0</CODE>",
+            "        <SEVERITY>INFO</SEVERITY>",
+            "      </STATUS>",
+            f"      <DTSERVER>{timestamp}</DTSERVER>",
+            "      <LANGUAGE>ENG</LANGUAGE>",
+            "    </SONRS>",
+            "  </SIGNONMSGSRSV1>",
+            "",
+            "  <BANKMSGSRSV1>",
+        ]
+    )
 
-    signon = f"""<OFX>
-  <SIGNONMSGSRSV1>
-    <SONRS>
-      <STATUS>
-        <CODE>0</CODE>
-        <SEVERITY>INFO</SEVERITY>
-      </STATUS>
-      <DTSERVER>{now}</DTSERVER>
-      <LANGUAGE>ENG</LANGUAGE>
-    </SONRS>
-  </SIGNONMSGSRSV1>
+    body_parts: list[str] = []
 
-  <BANKMSGSRSV1>
-"""
+    for index, report in enumerate(ofx_reports, start=1):
+        transactions = "\n".join(
+            _write_transaction(transaction, txn_index)
+            for txn_index, transaction in enumerate(report.transactions, start=1)
+        )
 
-    body = ""
-    for idx, report in enumerate(ofx_data, start=1):
-        bank = report.info.bank
-        account_id = report.info.account
-        transactions = report.transactions
+        body_parts.append(
+            "\n".join(
+                [
+                    "    <STMTTRNRS>",
+                    f"      <TRNUID>{index}</TRNUID>",
+                    "      <STATUS>",
+                    "        <CODE>0</CODE>",
+                    "        <SEVERITY>INFO</SEVERITY>",
+                    "      </STATUS>",
+                    "      <STMTRS>",
+                    "        <CURDEF>MDL</CURDEF>",
+                    "        <BANKACCTFROM>",
+                    f"          <BANKID>{report.info.bank}</BANKID>",
+                    f"          <ACCTID>{report.info.account}</ACCTID>",
+                    "          <ACCTTYPE>CHECKING</ACCTTYPE>",
+                    "        </BANKACCTFROM>",
+                    "        <BANKTRANLIST>",
+                    transactions,
+                    "        </BANKTRANLIST>",
+                    "      </STMTRS>",
+                    "    </STMTTRNRS>",
+                ]
+            )
+        )
 
-        stmt_trns = ""
-        for i, txn in enumerate(transactions, start=1):
-            stmt_trns += _write_transaction(txn, i)
+    footer = "\n".join(
+        [
+            "  </BANKMSGSRSV1>",
+            "</OFX>",
+        ]
+    )
 
-        body += f"""
-    <STMTTRNRS>
-      <TRNUID>{idx}</TRNUID>
-      <STATUS>
-        <CODE>0</CODE>
-        <SEVERITY>INFO</SEVERITY>
-      </STATUS>
-      <STMTRS>
-        <CURDEF>MDL</CURDEF>
-        <BANKACCTFROM>
-          <BANKID>{bank}</BANKID>
-          <ACCTID>{account_id}</ACCTID>
-          <ACCTTYPE>CHECKING</ACCTTYPE>
-        </BANKACCTFROM>
-        <BANKTRANLIST>{stmt_trns}
-        </BANKTRANLIST>
-      </STMTRS>
-    </STMTTRNRS>
-"""
-
-    footer = """  </BANKMSGSRSV1>
-</OFX>
-"""
-
-    content = header + signon + body + footer
+    content = "\n".join([header, sign_on, "\n".join(body_parts), footer])
     output_path.write_text(content, encoding="utf-8")
+    return output_path
+

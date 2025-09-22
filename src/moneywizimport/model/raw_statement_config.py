@@ -1,26 +1,35 @@
+"""Configuration model for raw statements."""
+
+from __future__ import annotations
+
+import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-import re
-import logging
+
 
 @dataclass
 class RawStatementConfig:
+    """Configuration entry describing how to process raw statement archives."""
+
     input_dir: Path
     pattern: re.Pattern[str]
     rename_template: str
     zip_password: Optional[bytes] = None
 
-    def __repr__(self) -> str:
-        pwd = "***" if self.zip_password else None
+    def __repr__(self) -> str:  # pragma: no cover - debugging helper
+        password_hint = "***" if self.zip_password else None
         return (
-            f"<RawStatementConfig "
+            "<RawStatementConfig "
             f"input_dir={self.input_dir}, "
             f"pattern={self.pattern.pattern!r}, "
             f"rename_template={self.rename_template}, "
-            f"zip_password={pwd}>"
+            f"zip_password={password_hint}>"
         )
 
     def log(self, logger: logging.Logger, level: int = logging.DEBUG) -> None:
         """Log this config using the given logger and level."""
+
         logger.log(level, "→ %s", self)
+
