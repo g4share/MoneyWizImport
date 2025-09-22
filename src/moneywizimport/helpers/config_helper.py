@@ -1,12 +1,16 @@
+"""Utilities for loading and interpreting YAML configuration files."""
+
+from __future__ import annotations
+
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import yaml
 
 from moneywizimport.model import RawStatementConfig
-from moneywizimport.model.bank_config import BankPattern, Account
+from moneywizimport.model.bank_config import Account, BankPattern
 from moneywizimport.model.payee_mapping import PayeeRule
 
 
@@ -15,109 +19,108 @@ class ConfigHelper:
 
     def __init__(self, config_path: Path):
         self.config_path = config_path
+        self._cache: dict[str, Any] | None = None
 
-    #
     def load_config(self) -> dict[str, Any]:
         """Load the YAML configuration file and resolve environment variables."""
-        raw = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
-        return self._resolve_value(raw)
 
-    #
+        if self._cache is None:
+            raw_content = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
+            self._cache = self._resolve_value(raw_content)
+        return self._cache
+
     def _resolve_value(self, value: Any) -> Any:
         if isinstance(value, dict):
-            return {k: self._resolve_value(v) for k, v in value.items()}
+            return {key: self._resolve_value(val) for key, val in value.items()}
         if isinstance(value, list):
-            return [self._resolve_value(v) for v in value]
-        if isinstance(value, str) and "${" in value:
-            env_key = re.findall(r"\$\{([^}]+)}", value)[0]
-            return os.getenv(env_key, "")
+            return [self._resolve_value(item) for item in value]
+        if isinstance(value, str):
+            return re.sub(r"\$\{([^}]+)\}", lambda match: os.getenv(match.group(1), ""), value)
         return value
 
-    #
     def get_statement_dirs(self) -> tuple[Path, Path]:
         config = self.load_config()
-        stm = config.get("statements", {})
-        prepared = Path(stm.get("prepared_dir", "./statements/prepared"))
-        ofx = Path(stm.get("ofx_dir", "./ofx"))
+        statements = config.get("statements", {})
+        prepared = Path(statements.get("prepared_dir", "./statements/prepared"))
+        ofx = Path(statements.get("ofx_dir", "./ofx"))
         return prepared, ofx
 
-    #
     def get_config_statements(self) -> list[RawStatementConfig]:
-        """Return list of RawStatementConfig entries from YAML config."""
+        """Return list of ``RawStatementConfig`` entries from the YAML config."""
+
         config = self.load_config()
         results: list[RawStatementConfig] = []
 
         for item in config.get("statements", {}).get("raw", []):
             zip_password = item.get("zip_password")
-            if isinstance(zip_password, str):
-                zip_password = zip_password.encode()
+            password_bytes = zip_password.encode() if isinstance(zip_password, str) else None
 
             results.append(
                 RawStatementConfig(
                     input_dir=Path(item["input_dir"]),
                     pattern=re.compile(item["pattern"]),
                     rename_template=item["rename_template"],
-                    zip_password=zip_password,
+                    zip_password=password_bytes,
                 )
             )
+
         return results
 
-    #
     def load_category_mapping(self) -> dict[str, str]:
         """Load payee-to-category mapping from the ``categories`` section."""
 
-        def recurse(node, current_path):
+        raw_config = self.load_config()
+        categories = raw_config.get("categories", {})
+        mapping: Dict[str, str] = {}
+
+        def _populate(node: Any, current_path: str) -> None:
             if isinstance(node, dict):
                 for key, value in node.items():
                     new_path = f"{current_path} / {key}" if current_path else key
                     if isinstance(value, dict) and "payees" in value:
                         for payee in value["payees"]:
-                            result[payee.lower()] = new_path
+                            mapping[payee.lower()] = new_path
                     else:
-                        recurse(value, new_path)
+                        _populate(value, new_path)
 
-        raw = self.load_config()
-        result: dict[str, str] = {}
-        categories = raw.get("categories", {})
-        recurse(categories, "")
-        return result
+        _populate(categories, "")
+        return mapping
 
-    #
     def load_payees_rules(self) -> list[PayeeRule]:
         """Load the payee regex rules from the config YAML."""
-        raw = self.load_config()
-        payees = raw.get("payees_mapping", [])
-        return [
-            PayeeRule(match=item["match"], name=item["name"])
-            for item in payees
-            if "match" in item and "name" in item
-        ]
 
-    #
+        config = self.load_config()
+        payees = config.get("payees_mapping", [])
+        rules: list[PayeeRule] = []
+
+        for item in payees:
+            match = item.get("match")
+            name = item.get("name")
+            if match and name:
+                rules.append(PayeeRule(match=match, name=name))
+
+        return rules
+
     def compile_bank_patterns(self) -> list[BankPattern]:
-        """Compile regex filter, accounts and zip password for each bank."""
+        """Compile regex filters, accounts and zip password for each bank."""
 
-        raw = self.load_config()
+        config = self.load_config()
         compiled: list[BankPattern] = []
 
-        for bank in raw.get("banks", []):
+        for bank in config.get("banks", []):
             accounts: list[Account] = []
-            for acc in bank.get("accounts", []):
-                accounts.append(
-                    Account(
-                        name=acc["name"],
-                        iban=acc["iban"],
-                    )
-                )
+            for account in bank.get("accounts", []):
+                accounts.append(Account(name=account["name"], iban=account["iban"]))
 
-            bank_filter = bank.get("filter")
+            pattern = bank.get("filter")
             compiled.append(
                 BankPattern(
                     name=bank["name"],
-                    filter=re.compile(bank_filter),
+                    filter=re.compile(pattern) if pattern else None,
                     accounts=accounts,
                     zip_password=bank.get("zip_password").encode() if bank.get("zip_password") else None,
                 )
             )
 
         return compiled
+

@@ -1,5 +1,3 @@
-ofx_dir: "./ofx"
-
 statements:
   prepared_dir: "./statements/prepared"
   ofx_dir: "./ofx"

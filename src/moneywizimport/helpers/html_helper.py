@@ -1,8 +1,11 @@
-import logging
+"""Helpers for extracting data from statement HTML files."""
 
-from pathlib import Path
+from __future__ import annotations
+
+import logging
 from datetime import datetime
-from typing import Any, Optional
+from pathlib import Path
+from typing import Optional
 
 from lxml import html
 
@@ -11,95 +14,100 @@ from moneywizimport.model.ofx_models import StatementTransaction
 logger = logging.getLogger(__name__)
 
 
-#
+def _parse_html(html_file: Path):
+    """Return an ``lxml`` document tree for ``html_file``."""
+
+    text = html_file.read_text(encoding="utf-8", errors="replace")
+    return html.fromstring(text)
+
+
 def read_statement_date(html_file: Path) -> str:
     """Return the statement date from ``html_file`` in ``DD-MM-YYYY`` format."""
+
     try:
-        text = html_file.read_text(encoding="utf-8", errors="replace")
-        doc = html.fromstring(text)
-        return doc.xpath(
-            "normalize-space(//span[contains(., 'Situatia la data de')]/ancestor::td/following-sibling::td[1]//text())"
+        document = _parse_html(html_file)
+        return document.xpath(
+            "normalize-space(//span[contains(., 'Situatia la data de')]/ancestor::td/"
+            "following-sibling::td[1]//text())"
         )
-    except Exception as exc:
+    except Exception:  # pragma: no cover - defensive logging
         logger.exception("Failed to read statement date from %s", html_file)
         raise
 
-#
+
 def read_iban(html_file: Path) -> str:
     """Return the IBAN value from the statement HTML file."""
+
     try:
-        text = html_file.read_text(encoding="utf-8", errors="replace")
-        doc = html.fromstring(text)
-        return doc.xpath(
-            "normalize-space(//span[contains(., 'IBAN')]/ancestor::td/following-sibling::td[1]//text())"
+        document = _parse_html(html_file)
+        return document.xpath(
+            "normalize-space(//span[contains(., 'IBAN')]/ancestor::td/"
+            "following-sibling::td[1]//text())"
         )
-    except Exception as exc:
+    except Exception:  # pragma: no cover - defensive logging
         logger.exception("Failed to read IBAN from %s", html_file)
         raise
 
-#
-def read_account_currency(html_file: Path) -> str | None:
-    """Extract account currency from statement HTML."""
+
+def read_account_currency(html_file: Path) -> Optional[str]:
+    """Extract account currency from ``html_file``."""
+
     try:
-        text = html_file.read_text(encoding="utf-8", errors="replace")
-        tree = html.fromstring(text)
-        elem = tree.xpath(
+        document = _parse_html(html_file)
+        values = document.xpath(
             "//tr/td/span[contains(text(),'Valuta contului')]/../following-sibling::td/span/text()"
         )
-        if elem:
-            return elem[0].strip()
-        return None
-    except Exception as exc:
+        return values[0].strip() if values else None
+    except Exception:  # pragma: no cover - defensive logging
         logger.exception("Failed to read account currency from %s", html_file)
         raise
 
 
-#
 def extract_balances(html_file: Path) -> tuple[str, str]:
     """Extract starting and ending balances from ``html_file``."""
+
     try:
-        text = html_file.read_text(encoding="utf-8", errors="replace")
-        doc = html.fromstring(text)
+        document = _parse_html(html_file)
 
         def find_value(label: str) -> str:
-            td = doc.xpath(f'//td[normalize-space()="{label}"]/following-sibling::td[1]')
-            return td[0].text_content().strip() if td else "?"
+            cell = document.xpath(f'//td[normalize-space()="{label}"]/following-sibling::td[1]')
+            return cell[0].text_content().strip() if cell else "?"
 
         start = find_value("Soldul la inceputul perioadei :")
         end = find_value("Soldul la sfirsitul perioadei :")
         return start, end
-
-    except Exception:
+    except Exception:  # pragma: no cover - defensive logging
         logger.exception("Failed to extract balances from %s", html_file)
         raise
 
-#
+
 def extract_transactions(html_file: Path) -> list[StatementTransaction]:
-    """Parse all transaction rows from ``html_file`` into StatementTransaction objects."""
-    doc = html.fromstring(html_file.read_text(encoding="utf-8"))
-    rows = doc.xpath("//table//tr[td and count(td)=7]")[1:]
+    """Parse all transaction rows from ``html_file`` into ``StatementTransaction`` objects."""
+
+    document = _parse_html(html_file)
+    rows = document.xpath("//table//tr[td and count(td)=7]")[1:]
     transactions: list[StatementTransaction] = []
 
     for row in rows:
-        cols = row.xpath("./td")
-        if len(cols) != 7:
+        columns = row.xpath("./td")
+        if len(columns) != 7:
             continue
 
-        raw_datetime = cols[1].text_content().strip()
-        details = cols[2].text_content().strip()
-        amount_raw = cols[3].text_content().strip()
-        amount_mdl = cols[4].text_content().strip()
-        fee = cols[5].text_content().strip()
+        raw_datetime = columns[1].text_content().strip()
+        details = columns[2].text_content().strip()
+        amount_raw = columns[3].text_content().strip()
+        amount_mdl = columns[4].text_content().strip()
+        fee = columns[5].text_content().strip()
 
         if not raw_datetime or not amount_raw:
             continue
 
         parts = raw_datetime.split()
         date = parts[0]
-        time = parts[1] if len(parts) > 1 else None
+        time_value = parts[1] if len(parts) > 1 else None
 
         try:
-            date_iso = datetime.strptime(date, "%d-%m-%Y").strftime("%Y-%m-%d")
+            iso_date = datetime.strptime(date, "%d-%m-%Y").strftime("%Y-%m-%d")
         except ValueError:
             continue
 
@@ -108,9 +116,11 @@ def extract_transactions(html_file: Path) -> list[StatementTransaction]:
         currency = amount_parts[1] if len(amount_parts) > 1 else "MDL"
         mdl_amount = amount_mdl.replace(",", ".")
 
-        if currency != "MDL":
+        if currency != "MDL": #TODO: Read from statement
             try:
-                exchange_rate: Optional[str] = str(round(abs(float(mdl_amount)) / abs(float(foreign_amount)), 6))
+                exchange_rate: Optional[str] = str(
+                    round(abs(float(mdl_amount)) / abs(float(foreign_amount)), 6)
+                )
             except ZeroDivisionError:
                 exchange_rate = None
         else:
@@ -119,8 +129,8 @@ def extract_transactions(html_file: Path) -> list[StatementTransaction]:
 
         transactions.append(
             StatementTransaction(
-                date=date_iso,
-                time=time,
+                date=iso_date,
+                time=time_value,
                 details=details,
                 amount=mdl_amount,
                 currency=currency,
