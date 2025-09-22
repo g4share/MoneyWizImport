@@ -37,14 +37,8 @@ def main() -> None:
 
     category_map = config_helper.load_category_mapping()
     payee_rules = config_helper.load_payees_rules()
-    _log_payee_rules(payee_rules)
 
     generate_reports(ofx_dir, groups, payee_rules, category_map)
-
-
-def _log_payee_rules(payee_rules: Iterable[PayeeRule]) -> None:
-    for rule in payee_rules:
-        logger.debug("Payee rule: match=%s → name=%s", rule.match, rule.name)
 
 
 def _log_groups(groups: Iterable[StatementGroup]) -> None:

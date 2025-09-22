@@ -136,7 +136,7 @@ def extract_transactions(html_file: Path) -> list[StatementTransaction]:
                 currency=currency,
                 foreign_amount=foreign_amount,
                 exchange_rate=exchange_rate,
-                fee=fee or None,
+                fee = None if not fee or float(fee) == 0.0 else fee
             )
         )
 

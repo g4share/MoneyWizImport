@@ -82,16 +82,30 @@ def _map_statement_to_transaction(
     statement_txn: StatementTransaction,
     payee_rules: list[PayeeRule],
     categories: dict[str, str],
-) -> Transaction:
+) -> list[Transaction]:
     payee = _resolve_payee(statement_txn.details, payee_rules)
-    return Transaction(
+    category = _resolve_category(payee, categories)
+
+    base_txn = Transaction(
         date=f"{statement_txn.date} {statement_txn.time}" if statement_txn.time else statement_txn.date,
         details=statement_txn.details,
         amount=statement_txn.amount,
         payee=payee,
-        category=_resolve_category(payee, categories),
+        category=category
     )
 
+    txns = [base_txn]
+    if statement_txn.fee :
+        fee_txn = Transaction(
+            date=base_txn.date,
+            details=f"fee: {statement_txn.details}",
+            amount=statement_txn.fee,
+            payee=payee,
+            category=category
+        )
+        txns.append(fee_txn)
+
+    return txns
 
 def prepare_archives(configs: list[RawStatementConfig], prepared_dir: Path) -> None:
     """Copy matching archives into ``prepared_dir`` using the configured naming scheme."""
@@ -118,7 +132,8 @@ def generate_reports(
     """Generate OFX reports for each group of statements."""
 
     for group in groups:
-        generate_report(ofx_root, group, payee_rules, category_map)
+        if group.month == "2025-02":
+            generate_report(ofx_root, group, payee_rules, category_map)
 
 
 def generate_report(
@@ -143,8 +158,9 @@ def generate_report(
 
             raw_transactions = extract_transactions(html_file)
             transactions = [
-                _map_statement_to_transaction(statement_txn, payee_rules, category_map)
+                t
                 for statement_txn in raw_transactions
+                for t in _map_statement_to_transaction(statement_txn, payee_rules, category_map)
             ]
 
             currency = read_account_currency(html_file)
@@ -163,16 +179,18 @@ def generate_report(
         logger.warning("No OFX data generated for %s", group.month)
         return
 
-    target_dir = ensure_directory(ofx_root / group.month)
+    target_dir = ensure_directory(ofx_root)
     target_path = target_dir / f"{group.month}.ofx"
-    output_file = write_ofx_file(ofx_data, target_path)
-    _log_ofx_summary(output_file, ofx_data)
+    ofx_file = write_ofx_file(ofx_data, target_path)
+
+    _log_ofx_summary(ofx_data)
+    logger.info("Created OFX file: %s", ofx_file)
 
 
-def _log_ofx_summary(ofx_path: Path, reports: list[OfxReport]) -> None:
+
+def _log_ofx_summary(reports: list[OfxReport]) -> None:
     """Log a concise summary for debugging purposes."""
 
-    logger.info("Created OFX file: %s", ofx_path)
 
     for report in reports:
         logger.debug(
