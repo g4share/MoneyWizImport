@@ -6,8 +6,6 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-
 
 @dataclass
 class RawStatementConfig:
@@ -16,9 +14,9 @@ class RawStatementConfig:
     input_dir: Path
     pattern: re.Pattern[str]
     rename_template: str
-    zip_password: Optional[bytes] = None
+    zip_password: bytes | None = None
 
-    def __repr__(self) -> str:  # pragma: no cover - debugging helper
+    def __repr__(self) -> str:
         password_hint = "***" if self.zip_password else None
         return (
             "<RawStatementConfig "

@@ -10,7 +10,7 @@ from typing import Any, Dict
 import yaml
 
 from moneywizimport.model import RawStatementConfig
-from moneywizimport.model.bank_config import Account, BankPattern
+from moneywizimport.model.provider_config import Account, Provider, OfflineAccount
 from moneywizimport.model.payee_mapping import PayeeRule
 
 
@@ -35,7 +35,7 @@ class ConfigHelper:
         if isinstance(value, list):
             return [self._resolve_value(item) for item in value]
         if isinstance(value, str):
-            return re.sub(r"\$\{([^}]+)\}", lambda match: os.getenv(match.group(1), ""), value)
+            return re.sub(r"\$\{([^}]+)}", lambda match: os.getenv(match.group(1), ""), value)
         return value
 
     def get_statement_dirs(self) -> tuple[Path, Path]:
@@ -73,10 +73,10 @@ class ConfigHelper:
         categories = raw_config.get("categories", {})
         mapping: Dict[str, str] = {}
 
-        def _populate(node: Any, current_path: str) -> None:
-            if isinstance(node, dict):
-                for key, value in node.items():
-                    new_path = f"{current_path} / {key}" if current_path else key
+        def _populate(_node: Any, _current_path: str) -> None:
+            if isinstance(_node, dict):
+                for key, value in _node.items():
+                    new_path = f"{_current_path} / {key}" if _current_path else key
                     if isinstance(value, dict) and "payees" in value:
                         for payee in value["payees"]:
                             mapping[payee.lower()] = new_path
@@ -101,24 +101,36 @@ class ConfigHelper:
 
         return rules
 
-    def compile_bank_patterns(self) -> list[BankPattern]:
-        """Compile regex filters, accounts and zip password for each bank."""
+    def get_offline_accounts(self) -> list[OfflineAccount]:
+        """Return offline accounts from config as dataclass list."""
+        config = self.load_config()
+        offline = config.get("offline_accounts", [])
+        return [
+            OfflineAccount(
+                name=acc.get("name", ""),
+                match=acc.get("match", []),
+            )
+            for acc in offline
+        ]
+
+    def compile_providers(self) -> list[Provider]:
+        """Compile regex filters, accounts and zip password for each provider."""
 
         config = self.load_config()
-        compiled: list[BankPattern] = []
+        compiled: list[Provider] = []
 
-        for bank in config.get("banks", []):
+        for provider in config.get("providers", []):
             accounts: list[Account] = []
-            for account in bank.get("accounts", []):
+            for account in provider.get("accounts", []):
                 accounts.append(Account(name=account["name"], iban=account["iban"]))
 
-            pattern = bank.get("filter")
+            pattern = provider.get("filter")
             compiled.append(
-                BankPattern(
-                    name=bank["name"],
+                Provider(
+                    name=provider["name"],
                     filter=re.compile(pattern) if pattern else None,
                     accounts=accounts,
-                    zip_password=bank.get("zip_password").encode() if bank.get("zip_password") else None,
+                    zip_password=provider.get("zip_password").encode() if provider.get("zip_password") else None,
                 )
             )
 

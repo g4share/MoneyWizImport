@@ -1,0 +1,139 @@
+statements:
+  prepared_dir: "./demo/prepared"
+  ofx_dir: "./ofx"
+  raw:
+    - input_dir: "./demo/raw"
+      pattern: "^Extras din contul de card.*\\.zip$"
+      rename_template: "VB_{year}-{month}-{day}_{iban}.zip"
+      zip_password: ${VB_ZIP_PASSWORD}
+
+providers:
+  - name: "Victoria Bank"
+    filter: "^VB_(?P<year>\\d{4})-(?P<month>\\d{2})-\\d{2}_(?P<iban>.+)\\.zip$"
+    zip_password: ${VB_ZIP_PASSWORD}
+    accounts:
+      - name: "Salut *8585"
+        iban: "MD66VI022521100011261MDL"
+      - name: "Salariu *9823"
+        iban: "MD65VI225912310310907131"
+
+offline_accounts:
+  - name: Revolut
+    match:
+      - REVOLUT
+  - name: Wallet
+    match:
+      - ATM
+      - WITHDRAWAL
+      - CASH
+      - BANCOMAT
+      - NUMERAR
+
+payees_mapping:
+  - match: AMAZON
+    name: Amazon
+  - match: FOOD ORDER
+    name: Andy's Pizza
+  - match: ONLINE PAYMENT
+    name: Prostii de pe Temu
+  - match: Family Market
+    name: Family Market
+  - match: Fourchette
+    name: Fourchette
+  - match: SALARY PAYMENT
+    name: BAAAANI
+  - match: Kaufland
+    name: Kaufland
+  - match: HBO MAX
+    name: HBO MAX
+  - match: Linella
+    name: Linella
+  - match: POS PURCHASE
+    name: Pacanele
+  - match: REVOLUT
+    name: Revolut
+  - match: MORTGAGE
+    name: Ipoteca
+  - match: MOBILE PHONE
+    name: Orange
+  - match: INFOCOM
+    name: Infocom
+  - match: INTERNET
+    name: Internet
+  - match: ONLINE SERVICE PAYMENT
+    name: Eurovizion
+
+
+categories:
+  Food & Dining:
+    Groceries:
+      payees:
+        - Kaufland
+        - Linella
+        - Nr1
+        - Zakaz Express
+        - Beef House
+    Restaurants:
+      payees:
+        - Beef House
+        - McDonalds
+        - Andy’s Pizza
+    Other: {}
+
+  Transportation:
+    Gas/Fuel: {}
+    Parking: {}
+    Public Transportation: {}
+    Car Insurance: {}
+    Maintenance: {}
+    Lease/Loan: {}
+    Car Rental: {}
+    Other: {}
+
+  Household:
+    Mortgage/Rent: {}
+    Home Insurance: {}
+    Maintenance: {}
+    Furniture: {}
+    Utilities: {}
+    Supplies: {}
+    Other: {}
+
+  Bills:
+    Fees: {}
+    Subscriptions: {}
+    Other: {}
+
+  Shopping:
+    Clothes: {}
+    Technology: {}
+    Gifts: {}
+    Accessories: {}
+    Tools: {}
+    Other: {}
+
+  Health Care:
+    Pharmacy: {}
+    Medical: {}
+    Health Insurance: {}
+    Dental: {}
+    Eye Care: {}
+    Other: {}
+
+  Community:
+    Taxes: {}
+    Loans: {}
+    Fees: {}
+    Charity: {}
+    Services: {}
+    Other: {}
+
+  Vacations:
+    Accommodation: {}
+    Transportation: {}
+    Attractions: {}
+
+  Credits:
+    Mortgage: {}
+    Car: {}
+    Appliances: {}

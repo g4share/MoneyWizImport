@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 
-def setup_logging(level: int = logging.INFO, handler: Optional[logging.Handler] = None) -> None:
+def setup_logging(level: int = logging.INFO, handler: logging.Handler | None = None) -> None:
     """Configure basic logging for the CLI tools."""
 
     handlers = [handler] if handler else [logging.StreamHandler()]

@@ -10,8 +10,7 @@ from typing import Iterable
 from moneywizimport.core.statement import generate_reports
 from moneywizimport.helpers import ConfigHelper, collect_statement_files
 from moneywizimport.logging_setup import setup_logging
-from moneywizimport.model.bank_config import BankPattern
-from moneywizimport.model.payee_mapping import PayeeRule
+from moneywizimport.model.provider_config import Provider, OfflineAccount
 from moneywizimport.model.statement_groups import StatementGroup
 
 logger = logging.getLogger(__name__)
@@ -29,40 +28,34 @@ def main() -> None:
 
     prepared_dir, ofx_dir = config_helper.get_statement_dirs()
 
-    bank_patterns = config_helper.compile_bank_patterns()
-    groups = collect_statement_files(prepared_dir, bank_patterns)
+    providers = config_helper.compile_providers()
+    groups = collect_statement_files(prepared_dir, providers)
+    offline_accounts = config_helper.get_offline_accounts()
 
-    _log_bank_patterns(bank_patterns)
+    _log_providers(providers)
     _log_groups(groups)
+    _log_offline_accounts(offline_accounts)
 
     category_map = config_helper.load_category_mapping()
     payee_rules = config_helper.load_payees_rules()
-
-    generate_reports(ofx_dir, groups, payee_rules, category_map)
+    generate_reports(ofx_dir, groups, payee_rules, category_map, offline_accounts)
 
 
 def _log_groups(groups: Iterable[StatementGroup]) -> None:
     for group in groups:
-        logger.debug("Month: %s", group.month)
-        for item in group.items:
-            password_hint = "***" if item.password else None
-            logger.debug(
-                "  Bank=%s Account=%s File=%s Password=%s",
-                item.bank,
-                item.account,
-                item.file.name,
-                password_hint,
-            )
+        logger.debug("%r", group)
+        for statement in group.statements:
+            logger.debug("  %r", statement)
 
+def _log_providers(providers: Iterable[Provider]) -> None:
+    for provider in providers:
+        logger.debug("%r", provider)
+        for account in provider.accounts or []:
+            logger.debug("  %r", account)
 
-def _log_bank_patterns(bank_patterns: Iterable[BankPattern]) -> None:
-    for bank in bank_patterns:
-        logger.debug("Bank: %s", bank.name)
-        logger.debug("  filter:   %s", bank.filter.pattern if bank.filter else None)
-        logger.debug("  password: %s", "***" if bank.zip_password else None)
-        for acc in bank.accounts:
-            logger.debug("  account: %s → %s", acc.name, acc.iban)
-
+def _log_offline_accounts(offline_accounts: Iterable[OfflineAccount]) -> None:
+    for offline_account in offline_accounts:
+        logger.debug("%r", offline_account)
 
 if __name__ == "__main__":
     main()

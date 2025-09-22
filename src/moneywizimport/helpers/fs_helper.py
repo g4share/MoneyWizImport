@@ -6,8 +6,9 @@ import logging
 import shutil
 from pathlib import Path
 from typing import Iterable
+from collections.abc import Callable
 
-from moneywizimport.model.bank_config import BankPattern
+from moneywizimport.model.provider_config import Provider
 from moneywizimport.model.statement_groups import StatementFile, StatementGroup
 
 logger = logging.getLogger(__name__)
@@ -20,24 +21,37 @@ def ensure_directory(path: Path) -> Path:
     return path
 
 
+def write_text_file(path: Path, text: str) -> None:
+    path.write_text(text, encoding="utf-8")
+
+
+def exec_on_file(
+    path: Path,
+    fn: Callable[[Path], None] | None = None
+) -> None:
+    """Run callback on each file in directory if provided."""
+    if fn:
+        for file in (f for f in path.iterdir() if f.is_file()):
+            fn(file)
+
 def collect_statement_files(
-    statement_dir: Path, bank_patterns: Iterable[BankPattern]
+    statement_dir: Path, providers: Iterable[Provider]
 ) -> list[StatementGroup]:
     """Collect statement archives grouped by month."""
 
     groups: dict[str, StatementGroup] = {}
 
-    def _get_or_create_group(month_key: str) -> StatementGroup:
-        if month_key not in groups:
-            groups[month_key] = StatementGroup(month=month_key)
-        return groups[month_key]
+    def _get_or_create_group(_month_key: str) -> StatementGroup:
+        if _month_key not in groups:
+            groups[_month_key] = StatementGroup(month=_month_key)
+        return groups[_month_key]
 
-    def _match_file(file_path: Path) -> tuple[str, str, str, bytes | None] | None:
-        for bank in bank_patterns:
-            if bank.filter is None:
+    def _match_file(_file_path: Path) -> tuple[str, str, str, bytes | None] | None:
+        for provider in providers:
+            if provider.filter is None:
                 continue
 
-            match = bank.filter.match(file_path.name)
+            match = provider.filter.match(_file_path.name)
             if not match:
                 continue
 
@@ -47,35 +61,34 @@ def collect_statement_files(
             month_key = f"{year}-{month}"
 
             account_name = next(
-                (account.name for account in bank.accounts if account.iban == iban),
+                (account.name for account in provider.accounts if account.iban == iban),
                 iban,
             )
 
-            return month_key, bank.name, account_name, bank.zip_password
+            return month_key, provider.name, account_name, provider.zip_password
 
         return None
 
-    for path in sorted(statement_dir.iterdir()):
-        if not path.is_file():
-            continue
-
-        match = _match_file(path)
+    def _add_group(_file_path: Path):
+        match = _match_file(_file_path)
         if not match:
-            logger.debug("Skipping unmatched file: %s", path.name)
-            continue
+            logger.debug("Skipping unmatched file: %s", _file_path.name)
+            return
 
-        month_key, bank_name, account_name, password = match
+        month_key, provider_name, account_name, password = match
         statement_file = StatementFile(
-            bank=bank_name,
+            provider=provider_name,
             account=account_name,
             password=password,
-            file=path,
+            file=_file_path,
         )
 
         group = _get_or_create_group(month_key)
         group.add(statement_file)
 
-    return [groups[key] for key in sorted(groups.keys())]
+    exec_on_file(statement_dir, fn=_add_group)
+
+    return [groups[key] for key in groups.keys()]
 
 
 def delete_paths(paths: Iterable[Path]) -> None:

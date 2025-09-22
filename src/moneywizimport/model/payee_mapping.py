@@ -9,9 +9,9 @@ from dataclasses import dataclass
 class PayeeRule:
     """Simple regex rule mapping a description to a payee name."""
 
-    match: str #TODO: Pattern
+    match: str
     name: str
 
-    def __repr__(self) -> str:  # pragma: no cover - debugging helper
-        return f"<PayeeRule match={self.match!r}, name={self.name!r}>"
+    def __repr__(self) -> str:
+        return f"PayeeRule: match={self.match!r}, name={self.name!r}"
 

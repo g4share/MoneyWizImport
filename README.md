@@ -46,13 +46,18 @@ This will create a virtual environment and install all required dependencies.
 ---
 
 ## Usage
+Set environment variables (zip passwords):
+```bash
+source env-demo.sh 
+```
+
 Run the tool with Poetry:
 ```bash
-poetry run prepare-statement
+clear; rm -rf demo/prepared/*(N); poetry run prepare-statement --config=src/moneywizimport/config-demo.yaml
 ```
 
 ```bash
-poetry run generate-ofx
+clear; poetry run generate-ofx --config=src/moneywizimport/config-demo.yaml
 ```
 ---
 

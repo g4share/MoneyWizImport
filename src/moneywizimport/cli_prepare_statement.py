@@ -1,4 +1,4 @@
-"""CLI for normalising bank statement archives."""
+"""CLI for normalising provider statement archives."""
 
 from __future__ import annotations
 

@@ -8,13 +8,14 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from moneywizimport.core.ofx_generator import write_ofx_file
+from moneywizimport.core.ofx_generator import generate_ofx_file
 from moneywizimport.helpers import (
     copy_file,
     delete_paths,
     ensure_directory,
     unzip_archive,
 )
+from moneywizimport.helpers.fs_helper import exec_on_file, write_text_file
 from moneywizimport.helpers.html_helper import (
     extract_balances,
     extract_transactions,
@@ -25,6 +26,7 @@ from moneywizimport.helpers.html_helper import (
 from moneywizimport.model import RawStatementConfig, StatementInfo
 from moneywizimport.model.ofx_models import OfxInfo, OfxReport, StatementTransaction, Transaction
 from moneywizimport.model.payee_mapping import PayeeRule
+from moneywizimport.model.provider_config import OfflineAccount
 from moneywizimport.model.statement_groups import StatementGroup
 
 logger = logging.getLogger(__name__)
@@ -53,10 +55,10 @@ def _get_statement_info(config: RawStatementConfig, archive_path: Path) -> State
         delete_paths([temp_dir])
 
 
-def _resolve_category(payee: str, categories: dict[str, str] | None) -> str:
-    if not categories:
-        return ": UNKNOWN"
-    return categories.get(payee.lower(), ": UNKNOWN")
+def _resolve_category(payee: str | None, categories: dict[str, str] | None) -> str | None:
+    if not categories or not payee:
+        return None
+    return categories.get(payee.lower(), None)
 
 
 def _prepare_archive(config: RawStatementConfig, archive_path: Path, destination_dir: Path) -> None:
@@ -70,42 +72,13 @@ def _prepare_archive(config: RawStatementConfig, archive_path: Path, destination
         logger.info("Copied %s → %s", archive_path, target_path)
 
 
-def _resolve_payee(description: str, payee_rules: list[PayeeRule]) -> str:
+def _resolve_payee(description: str, payee_rules: list[PayeeRule]) -> str | None:
     clean_description = description.strip()
     for rule in payee_rules:
         if re.search(rule.match, clean_description, flags=re.IGNORECASE):
             return rule.name
-    return ": UNKNOWN"
+    return None
 
-
-def _map_statement_to_transaction(
-    statement_txn: StatementTransaction,
-    payee_rules: list[PayeeRule],
-    categories: dict[str, str],
-) -> list[Transaction]:
-    payee = _resolve_payee(statement_txn.details, payee_rules)
-    category = _resolve_category(payee, categories)
-
-    base_txn = Transaction(
-        date=f"{statement_txn.date} {statement_txn.time}" if statement_txn.time else statement_txn.date,
-        details=statement_txn.details,
-        amount=statement_txn.amount,
-        payee=payee,
-        category=category
-    )
-
-    txns = [base_txn]
-    if statement_txn.fee :
-        fee_txn = Transaction(
-            date=base_txn.date,
-            details=f"fee: {statement_txn.details}",
-            amount=statement_txn.fee,
-            payee=payee,
-            category=category
-        )
-        txns.append(fee_txn)
-
-    return txns
 
 def prepare_archives(configs: list[RawStatementConfig], prepared_dir: Path) -> None:
     """Copy matching archives into ``prepared_dir`` using the configured naming scheme."""
@@ -118,9 +91,8 @@ def prepare_archives(configs: list[RawStatementConfig], prepared_dir: Path) -> N
             logger.error("Input directory not found: %s", input_dir)
             continue
 
-        for file_path in sorted(p for p in input_dir.iterdir() if p.is_file()):
-            if config.pattern.match(file_path.name):
-                _prepare_archive(config, file_path, prepared_dir)
+        exec_on_file(input_dir, fn=lambda file: _prepare_archive(config, file, prepared_dir)
+                                        if config.pattern.match(file.name) else None)
 
 
 def generate_reports(
@@ -128,12 +100,48 @@ def generate_reports(
     groups: list[StatementGroup],
     payee_rules: list[PayeeRule],
     category_map: dict[str, str],
+    offline_accounts: list[OfflineAccount],
+
 ) -> None:
     """Generate OFX reports for each group of statements."""
 
     for group in groups:
         if group.month == "2025-02":
-            generate_report(ofx_root, group, payee_rules, category_map)
+            generate_report(ofx_root, group, payee_rules, category_map, offline_accounts)
+
+
+def _map_statements_to_transactions(payee_rules: list[PayeeRule],
+                                    categories: dict[str, str],
+                                    transactions: list[StatementTransaction],
+                                    ) -> list[Transaction]:
+    reports: list[Transaction] = []
+
+    for transaction in transactions:
+        payee = _resolve_payee(transaction.details, payee_rules)
+        category = _resolve_category(payee, categories)
+
+        reports.append(
+            Transaction(
+                date_time=transaction.date_time,
+                details=transaction.details,
+                amount=transaction.amount,
+                payee=payee,
+                category=category)
+        )
+
+        if transaction.fee:
+            reports.append(
+                Transaction(
+                    date_time=transaction.date_time,
+                    details=transaction.details,
+                    amount=transaction.fee,
+                    payee=payee,
+                    category=category,
+                    about=" - Fee"
+                )
+            )
+
+    return reports
 
 
 def generate_report(
@@ -141,6 +149,7 @@ def generate_report(
     group: StatementGroup,
     payee_rules: list[PayeeRule],
     category_map: dict[str, str],
+    offline_accounts: list[OfflineAccount],
 ) -> None:
     """Generate an OFX file for one group of statement files."""
 
@@ -149,26 +158,22 @@ def generate_report(
     with tempfile.TemporaryDirectory() as tmp:
         temp_root = Path(tmp)
 
-        for index, entry in enumerate(group.items):
+        for index, statement in enumerate(group.statements):
             statement_dir = ensure_directory(temp_root / str(index))
-            html_file = unzip_archive(entry.file, statement_dir, password=entry.password)
+            html_file = unzip_archive(statement.file, statement_dir, password=statement.password)
             if not html_file:
-                logger.warning("Skipping %s because no HTML file was extracted", entry.file)
+                logger.warning("Skipping %s because no HTML file was extracted", statement.file)
                 continue
 
             raw_transactions = extract_transactions(html_file)
-            transactions = [
-                t
-                for statement_txn in raw_transactions
-                for t in _map_statement_to_transaction(statement_txn, payee_rules, category_map)
-            ]
+            transactions = _map_statements_to_transactions(payee_rules, category_map, raw_transactions)
 
             currency = read_account_currency(html_file)
             start_balance, end_balance = extract_balances(html_file)
 
             ofx_data.append(
                 OfxReport(
-                    info=OfxInfo(bank=entry.bank, account=entry.account, currency=currency),
+                    info=OfxInfo(provider=statement.provider, account=statement.account, currency=currency),
                     transactions=transactions,
                     start_balance=start_balance,
                     end_balance=end_balance,
@@ -179,31 +184,67 @@ def generate_report(
         logger.warning("No OFX data generated for %s", group.month)
         return
 
+    add_offline_transactions(ofx_data, offline_accounts)
+
     target_dir = ensure_directory(ofx_root)
-    target_path = target_dir / f"{group.month}.ofx"
-    ofx_file = write_ofx_file(ofx_data, target_path)
+    ofx_file_path = target_dir / f"{group.month}.ofx"
+
+    ofx_content = generate_ofx_file(ofx_data)
+    write_text_file(ofx_file_path, ofx_content)
 
     _log_ofx_summary(ofx_data)
-    logger.info("Created OFX file: %s", ofx_file)
+    logger.info("Created OFX file: %s", ofx_file_path)
 
+
+def add_offline_transactions(
+    ofx_data: list[OfxReport],
+    offline_accounts: list[OfflineAccount],
+) -> list[OfxReport]:
+    """Detect transfers to/from offline accounts and add matching reports."""
+
+    reports_by_account = {r.info.account: r for r in ofx_data}
+
+    def _add_transaction_to_report(_transaction: Transaction) -> None:
+        offline_txn = Transaction(
+            date_time=_transaction.date_time,
+            details=_transaction.details,
+            amount=-_transaction.amount,
+            payee=_transaction.payee,
+            category=_transaction.category,
+        )
+
+        offline_report = reports_by_account.get(acc.name)
+        if not offline_report:
+            offline_report = OfxReport(
+                info=OfxInfo(
+                    provider="OFFLINE",
+                    account=acc.name,
+                    currency=report.info.currency,
+                ),
+                transactions=[],
+                start_balance=None,
+                end_balance=None,
+            )
+            ofx_data.append(offline_report)
+            reports_by_account[acc.name] = offline_report
+
+        offline_report.transactions.append(offline_txn)
+
+
+    for report in list(ofx_data):
+        for transaction in report.transactions:
+            for acc in offline_accounts:
+                if any(re.search(pattern, transaction.details, re.IGNORECASE) for pattern in acc.match):
+                    _add_transaction_to_report(transaction)
+
+    return ofx_data
 
 
 def _log_ofx_summary(reports: list[OfxReport]) -> None:
     """Log a concise summary for debugging purposes."""
 
-
     for report in reports:
-        logger.debug(
-            "Account: %s (%s) currency=%s", report.info.account, report.info.bank, report.info.currency
-        )
-        logger.debug("  Start balance: %s", report.start_balance)
-        logger.debug("  End balance:   %s", report.end_balance)
+        logger.debug("%s", report)
         for txn in report.transactions:
-            logger.debug(
-                "    %s | %s | %s | %s",
-                txn.date,
-                txn.amount,
-                (txn.payee or "UNKNOWN"),
-                (txn.category or "-"),
-            )
+            logger.debug("  %r", txn)
 

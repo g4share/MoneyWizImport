@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from lxml import html
 
+from moneywizimport.helpers.conversion_helper import parse_datetime, parse_float_safe, parse_amount_currency
 from moneywizimport.model.ofx_models import StatementTransaction
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,7 @@ def read_statement_date(html_file: Path) -> str:
             "normalize-space(//span[contains(., 'Situatia la data de')]/ancestor::td/"
             "following-sibling::td[1]//text())"
         )
-    except Exception:  # pragma: no cover - defensive logging
+    except Exception:
         logger.exception("Failed to read statement date from %s", html_file)
         raise
 
@@ -44,12 +43,12 @@ def read_iban(html_file: Path) -> str:
             "normalize-space(//span[contains(., 'IBAN')]/ancestor::td/"
             "following-sibling::td[1]//text())"
         )
-    except Exception:  # pragma: no cover - defensive logging
+    except Exception:
         logger.exception("Failed to read IBAN from %s", html_file)
         raise
 
 
-def read_account_currency(html_file: Path) -> Optional[str]:
+def read_account_currency(html_file: Path) -> str | None:
     """Extract account currency from ``html_file``."""
 
     try:
@@ -58,25 +57,25 @@ def read_account_currency(html_file: Path) -> Optional[str]:
             "//tr/td/span[contains(text(),'Valuta contului')]/../following-sibling::td/span/text()"
         )
         return values[0].strip() if values else None
-    except Exception:  # pragma: no cover - defensive logging
+    except Exception:
         logger.exception("Failed to read account currency from %s", html_file)
         raise
 
 
-def extract_balances(html_file: Path) -> tuple[str, str]:
+def extract_balances(html_file: Path) -> tuple[float | None, float | None]:
     """Extract starting and ending balances from ``html_file``."""
 
     try:
         document = _parse_html(html_file)
 
-        def find_value(label: str) -> str:
+        def find_value(label: str) -> float | None:
             cell = document.xpath(f'//td[normalize-space()="{label}"]/following-sibling::td[1]')
-            return cell[0].text_content().strip() if cell else "?"
+            return parse_float_safe(cell[0].text_content().strip())
 
         start = find_value("Soldul la inceputul perioadei :")
         end = find_value("Soldul la sfirsitul perioadei :")
         return start, end
-    except Exception:  # pragma: no cover - defensive logging
+    except Exception:
         logger.exception("Failed to extract balances from %s", html_file)
         raise
 
@@ -93,50 +92,30 @@ def extract_transactions(html_file: Path) -> list[StatementTransaction]:
         if len(columns) != 7:
             continue
 
-        raw_datetime = columns[1].text_content().strip()
+        date_time = parse_datetime(columns[1].text_content())
+        amount = parse_float_safe(columns[4].text_content())
+
         details = columns[2].text_content().strip()
-        amount_raw = columns[3].text_content().strip()
-        amount_mdl = columns[4].text_content().strip()
-        fee = columns[5].text_content().strip()
+        account_currency = read_account_currency(html_file)
 
-        if not raw_datetime or not amount_raw:
-            continue
+        foreign_amount, currency = parse_amount_currency(columns[3].text_content(), account_currency)
+        fee = parse_float_safe(columns[5].text_content().strip())
 
-        parts = raw_datetime.split()
-        date = parts[0]
-        time_value = parts[1] if len(parts) > 1 else None
-
-        try:
-            iso_date = datetime.strptime(date, "%d-%m-%Y").strftime("%Y-%m-%d")
-        except ValueError:
-            continue
-
-        amount_parts = amount_raw.split()
-        foreign_amount = amount_parts[0].replace(",", ".")
-        currency = amount_parts[1] if len(amount_parts) > 1 else "MDL"
-        mdl_amount = amount_mdl.replace(",", ".")
-
-        if currency != "MDL": #TODO: Read from statement
-            try:
-                exchange_rate: Optional[str] = str(
-                    round(abs(float(mdl_amount)) / abs(float(foreign_amount)), 6)
-                )
-            except ZeroDivisionError:
-                exchange_rate = None
-        else:
-            foreign_amount = None
-            exchange_rate = None
+        exchange_rate = (
+            round(abs(float(amount) / float(foreign_amount)), 6)
+            if currency != account_currency and foreign_amount
+            else None
+        )
 
         transactions.append(
             StatementTransaction(
-                date=iso_date,
-                time=time_value,
+                date_time=date_time,
                 details=details,
-                amount=mdl_amount,
+                amount=amount,
                 currency=currency,
                 foreign_amount=foreign_amount,
                 exchange_rate=exchange_rate,
-                fee = None if not fee or float(fee) == 0.0 else fee
+                fee = None if not fee or fee == 0.0 else fee
             )
         )
 

@@ -4,17 +4,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
 class StatementFile:
     """A single statement archive entry."""
 
-    bank: str
+    provider: str
     account: str
-    password: Optional[bytes]
+    password: bytes | None
     file: Path
+
+    def __repr__(self) -> str:
+        pwd = "***" if self.password else None
+        return f"Statement: provider={self.provider}, account={self.account}, file={self.file.name}, password={pwd})"
+
 
 
 @dataclass
@@ -22,11 +26,12 @@ class StatementGroup:
     """A collection of ``StatementFile`` entries for a single month."""
 
     month: str
-    items: list[StatementFile] = field(default_factory=list)
+    statements: list[StatementFile] = field(default_factory=list)
 
-    def __repr__(self) -> str:  # pragma: no cover - debugging helper
-        return f"<StatementGroup month={self.month!r}, items={len(self.items)}>"
+    def __repr__(self) -> str:
+        return f"Group: month={self.month}"
+
 
     def add(self, statement_file: StatementFile) -> None:
-        self.items.append(statement_file)
+        self.statements.append(statement_file)
 

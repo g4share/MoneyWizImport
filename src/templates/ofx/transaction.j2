@@ -1,0 +1,11 @@
+    <STMTTRN>
+      <TRNTYPE>OTHER</TRNTYPE>
+      <DTPOSTED>{{ transaction.posted }}</DTPOSTED>
+      <TRNAMT>{{ transaction.amount }}</TRNAMT>
+      <FITID>{{ transaction.id() }}</FITID>
+      <NAME>{{ transaction.payee }}</NAME>
+      <MEMO>{{ transaction.description() }}</MEMO>
+      {% if transaction.category %}
+      <CATEGORY>{{ transaction.category }}</CATEGORY>
+      {% endif %}
+    </STMTTRN>
