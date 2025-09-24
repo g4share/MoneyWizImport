@@ -36,8 +36,8 @@ payees_mapping:
     name: Andy's Pizza
   - match: ONLINE PAYMENT
     name: Prostii de pe Temu
-  - match: Family Market
-    name: Family Market
+  #- match: Family Market
+  #  name: Family Market
   - match: Fourchette
     name: Fourchette
   - match: SALARY PAYMENT
@@ -62,6 +62,8 @@ payees_mapping:
     name: Internet
   - match: ONLINE SERVICE PAYMENT
     name: Eurovizion
+  - match: ATM
+    name: Cash
 
 
 categories:

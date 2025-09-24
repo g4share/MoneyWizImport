@@ -29,8 +29,7 @@ def generate_ofx_file(ofx_reports: list[OfxReport]) -> str:
     for idx, report in enumerate(ofx_reports, start=1):
         transactions = "\n".join(
             transaction_tpl.render(
-                transaction=transaction,
-                fitid=f"{transaction.date_time.strftime('%Y%m%d%H%M%S')}{i:04d}",
+                transaction=transaction
             )
             for i, transaction in enumerate(report.transactions, start=1)
         )

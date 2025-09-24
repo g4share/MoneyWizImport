@@ -19,10 +19,12 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     """Entry point for generating OFX files from statement archives."""
 
-    setup_logging(logging.DEBUG)
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="src/moneywizimport/config.yaml")
+    parser.add_argument("--logging", choices=logging._nameToLevel, default=logging.INFO)
     args = parser.parse_args()
+
+    setup_logging(logging.getLevelName(args.logging))
 
     config_helper = ConfigHelper(Path(args.config))
 

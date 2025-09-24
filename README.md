@@ -53,11 +53,11 @@ source env-demo.sh
 
 Run the tool with Poetry:
 ```bash
-clear; rm -rf demo/prepared/*(N); poetry run prepare-statement --config=src/moneywizimport/config-demo.yaml
+clear; rm -rf demo/prepared/*(N); poetry run prepare-statement --config=src/moneywizimport/config-demo.yaml --logging=DEBUG
 ```
 
 ```bash
-clear; poetry run generate-ofx --config=src/moneywizimport/config-demo.yaml
+clear; poetry run generate-ofx --config=src/moneywizimport/config-demo.yaml --logging=DEBUG
 ```
 ---
 

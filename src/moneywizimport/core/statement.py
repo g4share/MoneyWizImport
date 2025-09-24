@@ -24,7 +24,7 @@ from moneywizimport.helpers.html_helper import (
     read_statement_date,
 )
 from moneywizimport.model import RawStatementConfig, StatementInfo
-from moneywizimport.model.ofx_models import OfxInfo, OfxReport, StatementTransaction, Transaction
+from moneywizimport.model.ofx_models import OfxInfo, OfxReport, StatementTransaction, Transaction, TransactionType
 from moneywizimport.model.payee_mapping import PayeeRule
 from moneywizimport.model.provider_config import OfflineAccount
 from moneywizimport.model.statement_groups import StatementGroup
@@ -137,7 +137,7 @@ def _map_statements_to_transactions(payee_rules: list[PayeeRule],
                     amount=transaction.fee,
                     payee=payee,
                     category=category,
-                    about=" - Fee"
+                    type=TransactionType.FEE,
                 )
             )
 
@@ -211,7 +211,9 @@ def add_offline_transactions(
             amount=-_transaction.amount,
             payee=_transaction.payee,
             category=_transaction.category,
+            type = _transaction.type
         )
+        logger.info("  %r", offline_txn)
 
         offline_report = reports_by_account.get(acc.name)
         if not offline_report:
@@ -232,9 +234,11 @@ def add_offline_transactions(
 
 
     for report in list(ofx_data):
-        for transaction in report.transactions:
+        for transaction in (t for t in report.transactions if t.type != TransactionType.FEE):
             for acc in offline_accounts:
                 if any(re.search(pattern, transaction.details, re.IGNORECASE) for pattern in acc.match):
+                    transaction.details = acc.name
+                    transaction.type = TransactionType.XFER
                     _add_transaction_to_report(transaction)
 
     return ofx_data

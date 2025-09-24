@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import hashlib
+from enum import Enum
 
 
 @dataclass
@@ -21,6 +22,11 @@ class StatementTransaction:
     fee: float | None = None
 
 
+class TransactionType(str, Enum):
+    FEE = "FEE"
+    XFER = "XFER"
+    OTHER = "OTHER"
+
 @dataclass
 class Transaction:
     """Transaction representation to be written to OFX."""
@@ -28,7 +34,7 @@ class Transaction:
     date_time: datetime
     details: str
     amount: float
-    about: str = ""
+    type: TransactionType = TransactionType.OTHER
     payee: str | None = None
     category: str | None = None
 
@@ -39,13 +45,20 @@ class Transaction:
 
     def description(self) -> str:
         """Return description for OFX <MEMO> field."""
-        return self.about if self.payee else f"{self.details} {self.about}"
+
+        if self.type == TransactionType.FEE:
+            return "Fee" if self.payee else f"{self.details}: Fee"
+        if self.type == TransactionType.XFER:
+            return self.payee if self.payee else {self.details}
+        return "" if self.payee else f"{self.details}"
 
     def __repr__(self) -> str:
         return (
-            f"{self.id()} | "
-            f"{self.date_time} | "
-            f"{self.payee}"
+            f"payee: {self.payee} | "
+            f"type: {self.type} | "
+            f"details: {self.details} | "
+            f"amount: {self.amount} | "
+            f"descr: {self.description()} | "
         )
 
 
